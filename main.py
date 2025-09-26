@@ -264,7 +264,7 @@ async def startvote(interaction: discord.Interaction):
         await msg.add_reaction(f"{i+1}\u20E3")  # 1️⃣ 2️⃣ 3️⃣ etc
 
     data.vote_message_id = msg.id
-    await interaction.response.send_message("Voting started!", ephemeral=
+    await interaction.response.send_message("Voting started!", ephemeral=True)
                                             
 
     # Count reactions
