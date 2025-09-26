@@ -67,7 +67,7 @@ async def help_command(interaction: discord.Interaction):
                 embed.add_field(name=f"/{cmd.name}", value=cmd.description, inline=False)
         except:
             continue
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=embed, ephemeral=False)
 
 # -------------------------
 # /createevent
@@ -168,7 +168,7 @@ async def reminder(interaction: discord.Interaction):
 async def addgame(interaction: discord.Interaction, name: str):
     if data.addgame(name):
         games_list = ", ".join(data.games)
-        await interaction.response.send_message(f"Game added: {name}\nCurrent games: {games_list}", ephemeral=True)
+        await interaction.response.send_message(f"Game added: {name}\nCurrent games: {games_list}", ephemeral=False)
     else:
         await interaction.response.send_message("Cannot add more than 10 games or game already exists.", ephemeral=True)
 
@@ -178,14 +178,14 @@ async def removegame(interaction: discord.Interaction, name: str):
         await interaction.response.send_message("You don't have permission to remove games.", ephemeral=True)
         return
     if data.removegame(name):
-        await interaction.response.send_message(f"Removed game: {name}", ephemeral=True)
+        await interaction.response.send_message(f"Removed game: {name}", ephemeral=False)
     else:
         await interaction.response.send_message("Game not found.", ephemeral=True)
 
 @bot.tree.command(name="listgames", description="List all current games")
 async def listgames(interaction: discord.Interaction):
     if not data.games:
-        await interaction.response.send_message("No games added yet.", ephemeral=True)
+        await interaction.response.send_message("No games added yet.", ephemeral=False)
         return
     await interaction.response.send_message("Current games:\n" + "\n".join(f"{i+1}. {g}" for i, g in enumerate(data.games)), ephemeral=True)
 
@@ -195,7 +195,7 @@ async def resetgames(interaction: discord.Interaction):
         await interaction.response.send_message("You don't have permission to reset games.", ephemeral=True)
         return
     data.resetgames()
-    await interaction.response.send_message("All games have been reset.", ephemeral=True)
+    await interaction.response.send_message("All games have been reset.", ephemeral=False)
 
 # -------------------------
 # Participants tracking
@@ -231,7 +231,7 @@ async def participants(interaction: discord.Interaction):
     embed = discord.Embed(title="Event Participants", color=discord.Color.blue())
     embed.add_field(name="✅ Yes", value="\n".join(yes_users) or "None", inline=False)
     embed.add_field(name="❌ No", value="\n".join(no_users) or "None", inline=False)
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=embed, ephemeral=False)
 
 # -------------------------
 # Voting commands (roles only)
