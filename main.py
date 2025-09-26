@@ -62,9 +62,7 @@ async def help_command(interaction: discord.Interaction):
     embed = discord.Embed(title="Variety Friday Commands", color=discord.Color.blue())
     for cmd in bot.tree.walk_commands():
         try:
-            # Only show commands the user is allowed to use
-            if cmd.default_permission or allowed(interaction):
-                embed.add_field(name=f"/{cmd.name}", value=cmd.description, inline=False)
+            embed.add_field(name=f"/{cmd.name}", value=cmd.description, inline=False)
         except:
             continue
     await interaction.response.send_message(embed=embed, ephemeral=False)
