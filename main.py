@@ -187,7 +187,12 @@ async def listgames(interaction: discord.Interaction):
     if not data.games:
         await interaction.response.send_message("No games added yet.", ephemeral=False)
         return
-    await interaction.response.send_message("Current games:\n" + "\n".join(f"{i+1}. {g}" for i, g in enumerate(data.games)), ephemeral=False)
+    
+    # If the response might take longer, or multiple sends are needed, use followup
+    await interaction.response.send_message(
+        "Current games:\n" + "\n".join(f"{i+1}. {g}" for i, g in enumerate(data.games)),
+        ephemeral=False
+    )
 
 @bot.tree.command(name="resetgames", description="Reset all games (roles only)")
 async def resetgames(interaction: discord.Interaction):
