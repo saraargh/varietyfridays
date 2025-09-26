@@ -2,7 +2,7 @@
 import os
 from typing import List
 
-# Bot configuration
+# Bot token
 TOKEN = os.environ.get("TOKEN")
 if not TOKEN:
     raise ValueError("TOKEN environment variable is required")
@@ -11,8 +11,8 @@ if not TOKEN:
 ALLOWED_ROLES: List[str] = ["server sorter outerer", "sazzles"]
 
 # Discord settings
-VOICE_CHANNEL_NAME = 123456789012345678  # Replace with your channel ID
-GUILD_ID = 123456789012345678  # Replace with your server ID
+GUILD_ID = 987654321098765432  # <-- Replace with your real server ID
+VOICE_CHANNEL_NAME = 1404143716234432714  # <-- Replace with your real voice channel ID
 
 # Event settings
 EVENT_NAME = "Variety Friday"
