@@ -9,6 +9,12 @@ import logging
 import config
 from data_manager import DataManager
 
+#keep alive#
+from keep_alive import keep_alive
+
+keep_alive()  # starts the server in another thread
+
+
 # -------------------------
 # Logging
 # -------------------------
