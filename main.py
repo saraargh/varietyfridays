@@ -187,7 +187,7 @@ async def listgames(interaction: discord.Interaction):
     if not data.games:
         await interaction.response.send_message("No games added yet.", ephemeral=False)
         return
-    await interaction.response.send_message("Current games:\n" + "\n".join(f"{i+1}. {g}" for i, g in enumerate(data.games)), ephemeral=True)
+    await interaction.response.send_message("Current games:\n" + "\n".join(f"{i+1}. {g}" for i, g in enumerate(data.games)), ephemeral=False)
 
 @bot.tree.command(name="resetgames", description="Reset all games (roles only)")
 async def resetgames(interaction: discord.Interaction):
@@ -247,35 +247,20 @@ async def startvote(interaction: discord.Interaction):
 
     description = "\n".join(f"{i+1}\u20E3 {g}" for i, g in enumerate(data.games))
     embed = discord.Embed(title="Game Voting!", description=description, color=discord.Color.purple())
-    msg = await interaction.channel.send(embed=embed)
 
-    # Send the voting message with @everyone
+    # Send the voting message ONCE with @everyone
     msg = await interaction.channel.send(
         content="@everyone Vote on your games for Variety Friday!",
         embed=embed
     )
-    
+
+    # Add reactions for each game
     for i in range(len(data.games)):
         await msg.add_reaction(f"{i+1}\u20E3")  # 1️⃣ 2️⃣ 3️⃣ etc
 
     data.vote_message_id = msg.id
-    await interaction.response.send_message("Voting started!", ephemeral=True)
-
-@bot.tree.command(name="endvote", description="End voting and announce winner (roles only)")
-async def endvote(interaction: discord.Interaction):
-    if not allowed(interaction):
-        await interaction.response.send_message("You don't have permission to end voting.", ephemeral=True)
-        return
-    if not data.vote_message_id:
-        await interaction.response.send_message("No active voting message.", ephemeral=True)
-        return
-
-    channel = interaction.channel
-    try:
-        msg = await channel.fetch_message(data.vote_message_id)
-    except:
-        await interaction.response.send_message("Vote message not found.", ephemeral=True)
-        return
+    await interaction.response.send_message("Voting started!", ephemeral=
+                                            
 
     # Count reactions
     vote_counts = {}
