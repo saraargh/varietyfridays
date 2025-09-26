@@ -249,6 +249,12 @@ async def startvote(interaction: discord.Interaction):
     embed = discord.Embed(title="Game Voting!", description=description, color=discord.Color.purple())
     msg = await interaction.channel.send(embed=embed)
 
+    # Send the voting message with @everyone
+    msg = await interaction.channel.send(
+        content="@everyone Vote on your games for Variety Friday!",
+        embed=embed
+    )
+    
     for i in range(len(data.games)):
         await msg.add_reaction(f"{i+1}\u20E3")  # 1️⃣ 2️⃣ 3️⃣ etc
 
