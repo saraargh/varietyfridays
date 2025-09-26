@@ -1,1 +1,8 @@
-{}
+{
+  "games": [],
+  "vote_message_id": null,
+  "reminder_message_id": null,
+  "last_event_id": null,
+  "yes_participants": [],
+  "no_participants": []
+}
