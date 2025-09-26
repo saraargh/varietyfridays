@@ -3,15 +3,12 @@ import discord
 from discord.ext import commands, tasks
 from discord import app_commands
 import logging
-import asyncio
-from threading import Thread
-from flask import Flask
 
 import config
 from data_manager import DataManager
 from utils import (
-    is_allowed, create_variety_event, delete_event_safely, 
-    get_voting_emojis, safe_send_dm, create_games_embed, 
+    is_allowed, create_variety_event, delete_event_safely,
+    get_voting_emojis, safe_send_dm, create_games_embed,
     create_participants_embed
 )
 
@@ -21,20 +18,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-# ------------------ Keep Alive ------------------
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "I'm alive!"
-
-def run():
-    app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
 
 # ------------------ Bot Class ------------------
 class VarietyFridayBot(commands.Bot):
@@ -97,6 +80,7 @@ class VarietyFridayBot(commands.Bot):
 
 # ------------------ Initialize ------------------
 bot = VarietyFridayBot()
+
 # ======================== GAME COMMANDS ========================
 @bot.tree.command(name="addgame", description="Suggest a game for Variety Friday")
 async def addgame(interaction: discord.Interaction, name: str):
@@ -196,6 +180,7 @@ async def createevent(interaction: discord.Interaction):
     bot.data.last_event_id = event.id
     await interaction.response.send_message(f"✅ Event created: {event.url}")
 
+# ======================== REGISTRATION & REMINDER ========================
 @bot.tree.command(name="register", description="Announce registration & game suggestions")
 async def register(interaction: discord.Interaction):
     allowed_roles = config.ALLOWED_ROLES + ["Administrator"]
@@ -233,6 +218,7 @@ async def reminder(interaction: discord.Interaction):
     embed.add_field(name="Event Link", value=f"[Join here]({last_event.url})")
     await interaction.channel.send(embed=embed)
     await interaction.response.send_message("✅ Reminder sent!", ephemeral=True)
+
 # ======================== START EVENT COMMAND ========================
 @bot.tree.command(name="start_event", description="Announce event is starting & DM participants")
 async def start_event(interaction: discord.Interaction):
@@ -244,9 +230,7 @@ async def start_event(interaction: discord.Interaction):
     if not last_event:
         await interaction.response.send_message("⚠️ No event created yet.", ephemeral=True)
         return
-    # Announce in channel
     await interaction.channel.send(f"@everyone 🎉 Variety Friday is starting now! Join the event: {last_event.url}")
-    # DM participants who registered yes
     guild = interaction.guild
     for user_id in bot.data.yes_participants:
         member = guild.get_member(user_id)
@@ -327,17 +311,7 @@ async def on_raw_reaction_remove(payload):
             bot.data.remove_no_participant(payload.user_id)
 
 # ======================== BOT LIFECYCLE & MAIN ========================
-@bot.event
-async def on_ready():
-    logger.info(f"Bot connected as {bot.user}")
-    try:
-        await bot.tree.sync()
-        logger.info("Commands synced globally.")
-    except Exception as e:
-        logger.error(f"Failed to sync commands: {e}")
-
 def main():
-    keep_alive()
     if config.TOKEN:
         bot.run(config.TOKEN)
     else:
