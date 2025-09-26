@@ -1,209 +1,240 @@
+"""Main bot file for Variety Friday."""
+
 import discord
+from discord import app_commands, Interaction
 from discord.ext import commands, tasks
-from discord import app_commands, Embed
-import asyncio
 from data_manager import DataManager
 import config
 
+# -------------------------
+# Bot Setup
+# -------------------------
 intents = discord.Intents.default()
-intents.members = True
 intents.message_content = True
-intents.reactions = True  # Required for reaction tracking
+intents.guilds = True
+intents.members = True  # Needed for privileged intents
 
 bot = commands.Bot(command_prefix="/", intents=intents)
-tree = bot.tree
-data = DataManager()
+data_manager = DataManager()
 
-GUILD_ID = 1398508733709029428
-VOICE_CHANNEL_ID = 1404143716234432714
+# Emoji list for votes
+VOTE_EMOJIS = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"]
 
-# ------------------------
-# Helper functions
-# ------------------------
+# -------------------------
+# Helper Functions
+# -------------------------
+def has_allowed_role(interaction: Interaction) -> bool:
+    return any(role.name.lower() in [r.lower() for r in config.ALLOWED_ROLES] 
+               for role in interaction.user.roles)
 
-def create_event_embed():
-    embed = Embed(
-        title=f"{config.EVENT_NAME} Created!",
-        description=f"{config.EVENT_DESCRIPTION}\nReact ✅ to register for the event.\nUse /addgame to add games for voting!",
-        color=discord.Color.green()
-    )
-    if data.games:
-        embed.add_field(name="Current Games", value="\n".join(data.games), inline=False)
-    return embed
-
-def create_reminder_embed():
-    embed = Embed(
-        title=f"{config.EVENT_NAME} Reminder!",
-        description="React ✅ if you are attending!",
-        color=discord.Color.blue()
-    )
-    return embed
-
-def create_vote_embed():
-    if not data.games:
-        return None
-    description = ""
-    for idx, game in enumerate(data.games, start=1):
-        description += f"{idx}. {game}\n"
-    embed = Embed(
-        title="Vote for the next game!",
-        description=description,
-        color=discord.Color.orange()
-    )
-    return embed
-
-# ------------------------
-# Commands
-# ------------------------
-
-@tree.command(name="createevent", description="Create a new event")
-async def createevent(interaction: discord.Interaction):
-    """Creates a new event and announces it."""
-    # Save last_event_id placeholder (can be a timestamp or counter)
-    data.last_event_id = int(interaction.created_at.timestamp())
-    embed = create_event_embed()
-    message = await interaction.channel.send(embed=embed)
-    data.vote_message_id = message.id
-    await message.add_reaction("✅")
-    await interaction.response.send_message("Event created and announced!", ephemeral=True)
-
-@tree.command(name="register", description="Register for the current event")
-async def register(interaction: discord.Interaction):
-    """Registers the user for the event."""
-    user_id = interaction.user.id
-    data.add_yes_participant(user_id)
+async def send_dm(user: discord.User, message: str):
     try:
-        await interaction.user.send(f"Thanks for registering for {config.EVENT_NAME}! See you there 🎮")
+        await user.send(message)
     except:
         pass
-    await interaction.response.send_message("You are now registered!", ephemeral=True)
 
-@tree.command(name="reminder", description="Send a reminder for participants")
-async def reminder(interaction: discord.Interaction):
-    """Sends a reminder message where users can react to register."""
-    embed = create_reminder_embed()
-    msg = await interaction.channel.send(embed=embed)
-    data.reminder_message_id = msg.id
-    await msg.add_reaction("✅")
-    await interaction.response.send_message("Reminder sent!", ephemeral=True)
+def format_games_list():
+    if not data_manager.games:
+        return "No games added yet."
+    return "\n".join(f"{i+1}. {g}" for i, g in enumerate(data_manager.games))
 
-@tree.command(name="addgame", description="Add a game to the event")
-@app_commands.describe(name="Name of the game")
-async def addgame(interaction: discord.Interaction, name: str):
-    if data.add_game(name):
-        await interaction.response.send_message(f"Game '{name}' added!", ephemeral=True)
-    else:
-        await interaction.response.send_message(f"Game '{name}' is already in the list!", ephemeral=True)
+def format_participants():
+    if not data_manager.yes_participants:
+        return "No participants yet."
+    return "\n".join(f"<@{uid}>" for uid in data_manager.yes_participants)
 
-@tree.command(name="removegame", description="Remove a game from the event")
-@app_commands.describe(name="Name of the game")
-async def removegame(interaction: discord.Interaction, name: str):
-    if data.remove_game(name):
-        await interaction.response.send_message(f"Game '{name}' removed!", ephemeral=True)
-    else:
-        await interaction.response.send_message(f"Game '{name}' was not found!", ephemeral=True)
+# -------------------------
+# Commands
+# -------------------------
+@bot.tree.command(name="createevent", description="Create the Discord event.")
+async def createevent(interaction: Interaction):
+    guild = interaction.guild
+    event = await guild.create_scheduled_event(
+        name=config.EVENT_NAME,
+        description=config.EVENT_DESCRIPTION,
+        start_time=discord.utils.utcnow(),
+        end_time=discord.utils.utcnow() + discord.timedelta(hours=config.EVENT_DURATION_HOURS),
+        entity_type=discord.EntityType.voice,
+        channel=discord.Object(id=config.VOICE_CHANNEL_ID),
+    )
+    data_manager.last_event_id = event.id
+    await interaction.response.send_message(f"Event created: {event.name} (ID: {event.id})", ephemeral=True)
 
-@tree.command(name="listgames", description="List all games for the event")
-async def listgames(interaction: discord.Interaction):
-    games = data.games
-    if not games:
-        await interaction.response.send_message("No games added yet.", ephemeral=True)
-    else:
-        await interaction.response.send_message("\n".join(f"{i+1}. {g}" for i, g in enumerate(games)), ephemeral=True)
-
-@tree.command(name="startvote", description="Start a vote for the next game")
-async def startvote(interaction: discord.Interaction):
-    embed = create_vote_embed()
-    if embed is None:
-        await interaction.response.send_message("No games to vote on!", ephemeral=True)
+@bot.tree.command(name="register", description="Announce the event and register participants.")
+async def register(interaction: Interaction):
+    if not data_manager.last_event_id:
+        await interaction.response.send_message("No event exists. Use /createevent first.", ephemeral=True)
         return
-    msg = await interaction.channel.send(embed=embed)
-    data.vote_message_id = msg.id
-    for i in range(len(data.games)):
-        await msg.add_reaction(f"{i+1}\N{COMBINING ENCLOSING KEYCAP}")
-    await interaction.response.send_message("Voting started!", ephemeral=True)
 
-@tree.command(name="endvote", description="End the current vote and announce the winner")
-async def endvote(interaction: discord.Interaction):
+    guild = interaction.guild
+    event = await guild.fetch_scheduled_event(data_manager.last_event_id)
+    embed = discord.Embed(
+        title=f"{config.EVENT_NAME} Registration",
+        description=f"Event: {event.name}\nReact below if you're coming!\n{event.url}",
+        color=discord.Color.green()
+    )
+    msg = await interaction.channel.send("@everyone", embed=embed)
+    await msg.add_reaction("✅")
+    await msg.add_reaction("❌")
+    data_manager.vote_message_id = msg.id
+    await interaction.response.send_message("Registration message posted.", ephemeral=True)
+
+@bot.tree.command(name="reminder", description="Send a reminder message for the event.")
+async def reminder(interaction: Interaction):
+    if not data_manager.last_event_id:
+        await interaction.response.send_message("No event exists. Use /createevent first.", ephemeral=True)
+        return
+
+    guild = interaction.guild
+    event = await guild.fetch_scheduled_event(data_manager.last_event_id)
+    embed = discord.Embed(
+        title=f"{config.EVENT_NAME} Reminder",
+        description=f"Event: {event.name}\nReact below if you're coming!\n{event.url}",
+        color=discord.Color.blue()
+    )
+    msg = await interaction.channel.send("@everyone", embed=embed)
+    await msg.add_reaction("✅")
+    await msg.add_reaction("❌")
+    data_manager.reminder_message_id = msg.id
+    await interaction.response.send_message("Reminder message posted.", ephemeral=True)
+
+@bot.tree.command(name="addgame", description="Add a game to vote on.")
+async def addgame(interaction: Interaction, game_name: str):
+    if len(data_manager.games) >= config.MAX_VOTING_OPTIONS:
+        await interaction.response.send_message(f"Cannot add more than {config.MAX_VOTING_OPTIONS} games.", ephemeral=True)
+        return
+    if data_manager.add_game(game_name):
+        await interaction.response.send_message(f"Game added: {game_name}\nCurrent games:\n{format_games_list()}", ephemeral=True)
+    else:
+        await interaction.response.send_message("Game already exists.", ephemeral=True)
+
+@bot.tree.command(name="removegame", description="Remove a game (allowed roles only).")
+async def removegame(interaction: Interaction, game_name: str):
+    if not has_allowed_role(interaction):
+        await interaction.response.send_message("You don't have permission to do this.", ephemeral=True)
+        return
+    if data_manager.remove_game(game_name):
+        await interaction.response.send_message(f"Game removed: {game_name}\nCurrent games:\n{format_games_list()}", ephemeral=True)
+    else:
+        await interaction.response.send_message("Game not found.", ephemeral=True)
+
+@bot.tree.command(name="resetgames", description="Reset all games (allowed roles only).")
+async def resetgames(interaction: Interaction):
+    if not has_allowed_role(interaction):
+        await interaction.response.send_message("You don't have permission to do this.", ephemeral=True)
+        return
+    data_manager.clear_games()
+    await interaction.response.send_message("All games cleared.", ephemeral=True)
+
+@bot.tree.command(name="listgames", description="List all games.")
+async def listgames(interaction: Interaction):
+    await interaction.response.send_message(format_games_list(), ephemeral=True)
+
+@bot.tree.command(name="participants", description="List participants who said yes.")
+async def participants(interaction: Interaction):
+    await interaction.response.send_message(format_participants(), ephemeral=True)
+
+@bot.tree.command(name="startvote", description="Start a vote on games (allowed roles only).")
+async def startvote(interaction: Interaction):
+    if not has_allowed_role(interaction):
+        await interaction.response.send_message("You don't have permission.", ephemeral=True)
+        return
+    if not data_manager.games:
+        await interaction.response.send_message("No games to vote on.", ephemeral=True)
+        return
+    desc = "\n".join(f"{VOTE_EMOJIS[i]} {game}" for i, game in enumerate(data_manager.games))
+    embed = discord.Embed(title="Vote for a game!", description=desc, color=discord.Color.purple())
+    msg = await interaction.channel.send(embed=embed)
+    for i in range(len(data_manager.games)):
+        await msg.add_reaction(VOTE_EMOJIS[i])
+    data_manager.vote_message_id = msg.id
+    await interaction.response.send_message("Vote started.", ephemeral=True)
+
+@bot.tree.command(name="endvote", description="End voting and announce the winner (allowed roles only).")
+async def endvote(interaction: Interaction):
+    if not has_allowed_role(interaction):
+        await interaction.response.send_message("You don't have permission.", ephemeral=True)
+        return
+    if not data_manager.vote_message_id:
+        await interaction.response.send_message("No active vote.", ephemeral=True)
+        return
     channel = interaction.channel
     try:
-        msg = await channel.fetch_message(data.vote_message_id)
+        msg = await channel.fetch_message(data_manager.vote_message_id)
     except:
-        await interaction.response.send_message("Vote message not found!", ephemeral=True)
+        await interaction.response.send_message("Vote message not found.", ephemeral=True)
         return
-    votes = [0] * len(data.games)
+
+    counts = [0]*len(data_manager.games)
     for reaction in msg.reactions:
-        if reaction.emoji[0].isdigit():
-            idx = int(reaction.emoji[0]) - 1
-            votes[idx] = reaction.count - 1  # subtract bot's own reaction
-    if not votes or max(votes) == 0:
-        await interaction.response.send_message("No votes were cast.", ephemeral=True)
+        if reaction.emoji in VOTE_EMOJIS:
+            idx = VOTE_EMOJIS.index(reaction.emoji)
+            counts[idx] = reaction.count - 1  # exclude bot's own reaction
+
+    max_votes = max(counts)
+    winners = [data_manager.games[i] for i, c in enumerate(counts) if c == max_votes]
+    winner_text = ", ".join(winners)
+    await interaction.channel.send(f"Thanks for voting! The winner is: **{winner_text}** 🏆")
+    data_manager.vote_message_id = None
+
+@bot.tree.command(name="startevent", description="Announce the event is starting and DM participants.")
+async def startevent(interaction: Interaction):
+    if not data_manager.last_event_id:
+        await interaction.response.send_message("No event exists.", ephemeral=True)
         return
-    winner_idx = votes.index(max(votes))
-    winner = data.games[winner_idx]
-    embed = Embed(
-        title="Vote ended!",
-        description=f"Thanks for voting! The winner is **{winner}** 🏆",
-        color=discord.Color.gold()
-    )
-    await channel.send(embed=embed)
-    await interaction.response.send_message("Vote ended and winner announced.", ephemeral=True)
-
-@tree.command(name="participants", description="Show participants going to the event")
-async def participants(interaction: discord.Interaction):
-    yes_users = [f"<@{uid}>" for uid in data.yes_participants]
-    no_users = [f"<@{uid}>" for uid in data.no_participants]
-    embed = Embed(title="Participants", color=discord.Color.purple())
-    embed.add_field(name="✅ Going", value="\n".join(yes_users) if yes_users else "None", inline=False)
-    embed.add_field(name="❌ Not Going", value="\n".join(no_users) if no_users else "None", inline=False)
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-@tree.command(name="startevent", description="Announce that the event is starting")
-async def startevent(interaction: discord.Interaction):
-    yes_users = [bot.get_user(uid) for uid in data.yes_participants]
-    mention_text = ", ".join(u.mention for u in yes_users if u)
-    msg = await interaction.channel.send(f"{config.EVENT_NAME} is starting! {mention_text}")
-    for user in yes_users:
+    guild = interaction.guild
+    event = await guild.fetch_scheduled_event(data_manager.last_event_id)
+    await interaction.channel.send(f"{config.EVENT_NAME} is starting now! @everyone")
+    for uid in data_manager.yes_participants:
+        user = guild.get_member(uid)
         if user:
-            try:
-                await user.send(f"{config.EVENT_NAME} is starting now! See you in {VOICE_CHANNEL_ID} 🎮")
-            except:
-                pass
-    await interaction.response.send_message("Event started and notifications sent.", ephemeral=True)
+            await send_dm(user, f"{config.EVENT_NAME} is starting! See you there!")
 
-# ------------------------
-# Reaction listener
-# ------------------------
+@bot.tree.command(name="help", description="Show available commands.")
+async def help_command(interaction: Interaction):
+    help_text = ""
+    for cmd in bot.tree.walk_commands():
+        # Skip commands if user cannot run (role restriction)
+        if cmd.name in ["removegame", "resetgames", "startvote", "endvote"]:
+            if not has_allowed_role(interaction):
+                continue
+        help_text += f"/{cmd.name} - {cmd.description}\n"
+    await interaction.response.send_message(help_text or "No commands available.", ephemeral=True)
+
+# -------------------------
+# Reactions Handling
+# -------------------------
+@bot.event
+async def on_raw_reaction_add(payload):
+    if payload.user_id == bot.user.id:
+        return
+
+    if payload.message_id not in [data_manager.vote_message_id, data_manager.reminder_message_id]:
+        return
+
+    if str(payload.emoji) == "✅":
+        data_manager.add_yes_participant(payload.user_id)
+        user = bot.get_user(payload.user_id)
+        await send_dm(user, f"Thanks for registering for {config.EVENT_NAME}! See you there.")
+    elif str(payload.emoji) == "❌":
+        data_manager.add_no_participant(payload.user_id)
 
 @bot.event
-async def on_reaction_add(reaction, user):
-    if user.bot:
+async def on_raw_reaction_remove(payload):
+    if payload.user_id == bot.user.id:
         return
-    if reaction.message.id == data.vote_message_id:
-        return  # votes handled in /endvote
-    if reaction.message.id == data.reminder_message_id:
-        if str(reaction.emoji) == "✅":
-            data.add_yes_participant(user.id)
-
-@bot.event
-async def on_reaction_remove(reaction, user):
-    if user.bot:
+    if payload.message_id not in [data_manager.vote_message_id, data_manager.reminder_message_id]:
         return
-    if reaction.message.id == data.reminder_message_id:
-        if str(reaction.emoji) == "✅":
-            data.remove_yes_participant(user.id)
+    if str(payload.emoji) == "✅":
+        data_manager.remove_yes_participant(payload.user_id)
+    elif str(payload.emoji) == "❌":
+        data_manager.remove_no_participant(payload.user_id)
 
-# ------------------------
-# Bot startup
-# ------------------------
-
+# -------------------------
+# Run Bot
+# -------------------------
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
-    try:
-        synced = await tree.sync(guild=discord.Object(id=GUILD_ID))
-        print(f"Synced {len(synced)} commands.")
-    except Exception as e:
-        print(f"Error syncing commands: {e}")
 
 bot.run(config.TOKEN)
