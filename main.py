@@ -265,7 +265,23 @@ async def startvote(interaction: discord.Interaction):
 
     data.vote_message_id = msg.id
     await interaction.response.send_message("Voting started!", ephemeral=True)
-                                            
+
+
+@bot.tree.command(name="endvote", description="End voting and announce winner (roles only)")
+async def endvote(interaction: discord.Interaction):
+    if not allowed(interaction):
+        await interaction.response.send_message("You don't have permission to end voting.", ephemeral=True)
+        return
+    if not data.vote_message_id:
+        await interaction.response.send_message("No active voting message.", ephemeral=True)
+        return
+
+    channel = interaction.channel
+    try:
+        msg = await channel.fetch_message(data.vote_message_id)
+    except:
+        await interaction.response.send_message("Vote message not found.", ephemeral=True)
+        return
 
     # Count reactions
     vote_counts = {}
@@ -277,15 +293,15 @@ async def startvote(interaction: discord.Interaction):
         else:
             vote_counts[game] = 0
 
-    # Determine winner
+    # Determine winner (assumes no tie)
     if vote_counts:
         max_votes = max(vote_counts.values())
         winners = [g for g, v in vote_counts.items() if v == max_votes]
-        winner_text = ", ".join(winners)
+        winner_text = winners[0]  # take first game if multiple have same votes
     else:
         winner_text = "No votes cast."
 
-    await interaction.channel.send(f"Voting ended! Winner(s): {winner_text}")
+    await interaction.channel.send(f"Voting has ended, {winner_text} is the winner! 🏆")
     data.vote_message_id = None
 
 # -------------------------
