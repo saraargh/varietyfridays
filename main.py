@@ -316,4 +316,4 @@ async def startevent(interaction: discord.Interaction):
 # -------------------------
 # Run bot
 # -------------------------
-bot.run(config.TOKEN 
+bot.run(config.TOKEN)
