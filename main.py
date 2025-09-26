@@ -301,7 +301,7 @@ async def endvote(interaction: discord.Interaction):
     else:
         winner_text = "No votes cast."
 
-    await interaction.channel.send(f"Voting has ended, {winner_text} is the winner! 🏆")
+    await interaction.channel.send(f"@everyone Voting has ended, {winner_text} is the winner! 🏆")
     data.vote_message_id = None
 
 # -------------------------
