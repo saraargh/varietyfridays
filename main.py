@@ -348,27 +348,39 @@ async def endvote(interaction: discord.Interaction):
     winners = [g for g, v in vote_counts.items() if v == max_votes]
 
     if len(winners) == 0:
-        embed = discord.Embed(title="No votes were cast 😢",
-                              description="Nobody voted, so no game was chosen.",
-                              color=discord.Color.dark_gray())
+        embed = discord.Embed(
+            title="No votes were cast 😢",
+            description="Nobody voted, so no game was chosen.",
+            color=discord.Color.dark_gray()
+        )
         await channel.send(embed=embed)
     elif len(winners) == 1:
         winner_text = winners[0]
-        embed = discord.Embed(title=f"🏆 {winner_text} WINS! 🏆",
-                              description=f"Variety Friday will be playing **{winner_text}**! 🎉",
-                              color=discord.Color.green())
+        embed = discord.Embed(
+            title=f"🏆 The winner is: {winner_text} 🏆",
+            description=f"Everyone get ready for **{winner_text}**! 🎮",
+            color=discord.Color.green()
+        )
+        embed.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUyM2g0dWVqcnBpcTN1NGJzMDYyMnY4OHFwMXZiOHlyOXJ1MGQ2aTdwMCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/blSTtZehjAZ8I/giphy.gif")
         await channel.send(embed=embed)
     else:
-        tied_games_text = "\n".join(f"{i+1}. {g}" for i, g in enumerate(winners))
-        embed = discord.Embed(title="⚠️ IT'S A TIE! ⚠️",
-                              description=f"The following games tied:\n{tied_games_text}\nReact again to break the tie!",
-                              color=discord.Color.red())
+        # Tie detected
+        tied_games = winners.copy()
+        tied_games.append("All of them")  # Include "All of them" as last option
+        tied_text = "\n".join(f"{i+1}. {g}" for i, g in enumerate(tied_games))
+        embed = discord.Embed(
+            title="⚠️ IT'S A TIE! ⚠️",
+            description=f"The following games tied:\n{tied_text}\nReact to vote again to break the tie!",
+            color=discord.Color.red()
+        )
+        embed.set_image(url="https://media0.giphy.com/media/v1.Y2lkPTZjMDliOTUya2pmcnM5Y25kcGprZmlhbnVycDlmNjIxa2FhYWFkYWI2czBzenRmcyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT3i0VNrc6Ny7bxfJm/giphy.gif")
         tie_msg = await channel.send(embed=embed)
-        for i in range(len(winners)):
+
+        for i in range(len(tied_games)):
             await tie_msg.add_reaction(f"{i+1}\u20E3")
-        await tie_msg.add_reaction("🅰️")
+
         data.tie_message_id = tie_msg.id
-        data.tie_options = winners
+        data.tie_options = tied_games
         data.vote_message_id = None
 
 # -------------------------
@@ -396,18 +408,17 @@ async def endtiebreak(interaction: discord.Interaction):
         reaction = discord.utils.get(msg.reactions, emoji=emoji)
         tie_counts[game] = reaction.count - 1 if reaction else 0
 
-    # Check "All of them" option
-    all_reaction = discord.utils.get(msg.reactions, emoji="🅰️")
-    if all_reaction and all_reaction.count > 1:
-        winner_text = "All of them"
+    max_votes = max(tie_counts.values(), default=0)
+    winners = [g for g, v in tie_counts.items() if v == max_votes]
+
+    if "All of them" in winners:
+        winner_text = ", ".join([g for g in data.tie_options if g != "All of them"])
     else:
-        max_votes = max(tie_counts.values(), default=0)
-        winners = [g for g, v in tie_counts.items() if v == max_votes]
-        winner_text = winners[0] if winners else "No votes cast"
+        winner_text = winners[0]
 
     embed = discord.Embed(
-        title=f"🎉 Tie Broken! 🎉",
-        description=f"Variety Friday will be playing **{winner_text}**! 🏆",
+        title=f"🎲 We're rolling with: {winner_text}! 🏆",
+        description=f"Get ready to play **{winner_text}**! 🎮",
         color=discord.Color.green()
     )
     embed.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUyM2g0dWVqcnBpcTN1NGJzMDYyMnY4OHFwMXZiOHlyOXJ1MGQ2aTdwMCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/blSTtZehjAZ8I/giphy.gif")
