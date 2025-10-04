@@ -31,7 +31,8 @@ class DataManager:
             "last_event_id": None,
             "reminder_message_id": None,
             "yes_participants": [],
-            "no_participants": []
+            "no_participants": [],
+            "maybe_participants": []
         }
     
     def save_data(self) -> bool:
@@ -116,29 +117,54 @@ class DataManager:
     @property
     def no_participants(self) -> Set[int]:
         return set(self._data.get("no_participants", []))
+
+    @property
+    def maybe_participants(self) -> Set[int]:
+        return set(self._data.get("maybe_participants", []))
     
     def add_yes_participant(self, user_id: int):
-        """Add a user to yes participants and remove from no."""
+        """Add a user to yes participants and remove from no/maybe."""
+        yes_set = set(self._data.get("yes_participants", []))
+        no_set = set(self._data.get("no_participants", []))
+        maybe_set = set(self._data.get("maybe_participants", []))
+        
+        yes_set.add(user_id)
+        no_set.discard(user_id)
+        maybe_set.discard(user_id)
+        
+        self._data["yes_participants"] = list(yes_set)
+        self._data["no_participants"] = list(no_set)
+        self._data["maybe_participants"] = list(maybe_set)
+        self.save_data()
+    
+    def add_no_participant(self, user_id: int):
+        """Add a user to no participants and remove from yes/maybe."""
+        no_set = set(self._data.get("no_participants", []))
+        yes_set = set(self._data.get("yes_participants", []))
+        maybe_set = set(self._data.get("maybe_participants", []))
+        
+        no_set.add(user_id)
+        yes_set.discard(user_id)
+        maybe_set.discard(user_id)
+        
+        self._data["yes_participants"] = list(yes_set)
+        self._data["no_participants"] = list(no_set)
+        self._data["maybe_participants"] = list(maybe_set)
+        self.save_data()
+    
+    def add_maybe_participant(self, user_id: int):
+        """Add a user to maybe participants and remove from yes/no."""
+        maybe_set = set(self._data.get("maybe_participants", []))
         yes_set = set(self._data.get("yes_participants", []))
         no_set = set(self._data.get("no_participants", []))
         
-        yes_set.add(user_id)
+        maybe_set.add(user_id)
+        yes_set.discard(user_id)
         no_set.discard(user_id)
         
         self._data["yes_participants"] = list(yes_set)
         self._data["no_participants"] = list(no_set)
-        self.save_data()
-    
-    def add_no_participant(self, user_id: int):
-        """Add a user to no participants and remove from yes."""
-        no_set = set(self._data.get("no_participants", []))
-        yes_set = set(self._data.get("yes_participants", []))
-        
-        no_set.add(user_id)
-        yes_set.discard(user_id)
-        
-        self._data["yes_participants"] = list(yes_set)
-        self._data["no_participants"] = list(no_set)
+        self._data["maybe_participants"] = list(maybe_set)
         self.save_data()
     
     def remove_yes_participant(self, user_id: int):
@@ -153,7 +179,14 @@ class DataManager:
         self._data["no_participants"] = list(no_set)
         self.save_data()
     
+    def remove_maybe_participant(self, user_id: int):
+        maybe_set = set(self._data.get("maybe_participants", []))
+        maybe_set.discard(user_id)
+        self._data["maybe_participants"] = list(maybe_set)
+        self.save_data()
+    
     def clear_participants(self):
         self._data["yes_participants"] = []
         self._data["no_participants"] = []
+        self._data["maybe_participants"] = []
         self.save_data()
