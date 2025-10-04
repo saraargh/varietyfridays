@@ -213,7 +213,8 @@ def is_blocked_game(name: str) -> bool:
 # -------------------------
 @bot.tree.command(name="addgame", description="Add a game to vote on")
 async def addgame(interaction: discord.Interaction, name: str):
-    if data.vote_message_id is not None:
+    # Only block if voting is actually open
+    if data.vote_message_id is not None and getattr(data, 'tie_message_id', None) is None:
         embed = discord.Embed(
             title="🚨🚨 TOO LATE! 🚨🚨",
             description=f"**{interaction.user.mention} tried to add a game while voting is open!**",
@@ -355,6 +356,7 @@ async def endvote(interaction: discord.Interaction):
         msg = await channel.fetch_message(data.vote_message_id)
     except:
         await interaction.response.send_message("Vote message not found.", ephemeral=True)
+        data.vote_message_id = None
         return
 
     vote_counts = {}
@@ -365,6 +367,8 @@ async def endvote(interaction: discord.Interaction):
 
     max_votes = max(vote_counts.values(), default=0)
     winners = [g for g, v in vote_counts.items() if v == max_votes]
+
+    data.vote_message_id = None  # Reset so /addgame can work again
 
     if len(winners) == 0:
         embed = discord.Embed(
@@ -385,13 +389,13 @@ async def endvote(interaction: discord.Interaction):
     else:
         # Tie detected
         tied_games = winners.copy()
-        tied_games.append("All of them")  # Include "All of them" as last option
+        tied_games.append("All of them")
         tied_text = "\n".join(f"{i+1}. {g}" for i, g in enumerate(tied_games))
         embed = discord.Embed(
-    title="⚠️ IT'S A TIE! ⚠️",
-    description=f"The following games tied, vote again to break the tie!\n{tied_text}",
-    color=discord.Color.red()
-)
+            title="⚠️ IT'S A TIE! ⚠️",
+            description=f"The following games tied, vote again to break the tie!\n{tied_text}",
+            color=discord.Color.red()
+        )
         embed.set_image(url="https://media0.giphy.com/media/v1.Y2lkPTZjMDliOTUya2pmcnM5Y25kcGprZmlhbnVycDlmNjIxa2FhYWFkYWI2czBzenRmcyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT3i0VNrc6Ny7bxfJm/giphy.gif")
         tie_msg = await channel.send(embed=embed)
 
@@ -400,7 +404,6 @@ async def endvote(interaction: discord.Interaction):
 
         data.tie_message_id = tie_msg.id
         data.tie_options = tied_games
-        data.vote_message_id = None
 
 # -------------------------
 # /endtiebreak command
