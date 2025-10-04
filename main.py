@@ -177,7 +177,7 @@ def is_blocked_game(name: str) -> bool:
     """Return True if name matches blocked words (Death Note, L, etc.), including leetspeak and separators."""
     blocked_keywords = [
         "death note", "dn", "dnkw", "death note killer within",
-        "cooked", "washed", "kira", "downtown", "toy town", "toytown"
+        "cooked", "washed", "kira", "downtown", "toy town", "toytown", "note"
     ]
 
     # Normalize leetspeak
