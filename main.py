@@ -14,7 +14,6 @@ from keep_alive import keep_alive
 
 keep_alive()  # starts the server in another thread
 
-
 # -------------------------
 # Logging
 # -------------------------
@@ -132,8 +131,9 @@ async def register(interaction: discord.Interaction):
     )
 
     msg = await interaction.channel.send("@everyone", embed=embed)
-    await msg.add_reaction("✅")
-    await msg.add_reaction("❌")
+    await msg.add_reaction("✅")  # Yes
+    await msg.add_reaction("❌")  # No
+    await msg.add_reaction("❔")  # Maybe
 
     data.reminder_message_id = msg.id
     await interaction.response.send_message("Registration message sent!", ephemeral=True)
@@ -160,8 +160,10 @@ async def reminder(interaction: discord.Interaction):
     )
 
     msg = await interaction.channel.send("@everyone", embed=embed)
-    await msg.add_reaction("✅")
-    await msg.add_reaction("❌")
+    await msg.add_reaction("✅")  # Yes
+    await msg.add_reaction("❌")  # No
+    await msg.add_reaction("❔")  # Maybe
+
     data.reminder_message_id = msg.id
     await interaction.response.send_message("Reminder sent!", ephemeral=True)
 
@@ -170,6 +172,11 @@ async def reminder(interaction: discord.Interaction):
 # -------------------------
 @bot.tree.command(name="addgame", description="Add a game to vote on")
 async def addgame(interaction: discord.Interaction, name: str):
+    blocked_games = ["death note", "dn", "dnkw", "death note killer within"]
+    if name.lower() in blocked_games:
+        await interaction.channel.send(f"@everyone {interaction.user.mention} just tried to add death note, its variety friday please add a different game!")
+        return
+
     if data.addgame(name):
         games_list = ", ".join(data.games)
         await interaction.response.send_message(f"Game added: {name}\nCurrent games: {games_list}", ephemeral=False)
@@ -192,7 +199,6 @@ async def listgames(interaction: discord.Interaction):
         await interaction.response.send_message("No games added yet.", ephemeral=False)
         return
     
-    # If the response might take longer, or multiple sends are needed, use followup
     await interaction.response.send_message(
         "Current games:\n" + "\n".join(f"{i+1}. {g}" for i, g in enumerate(data.games)),
         ephemeral=False
@@ -222,6 +228,8 @@ async def on_reaction_add(reaction, user):
                 pass
         elif str(reaction.emoji) == "❌":
             data.add_no_participant(user.id)
+        elif str(reaction.emoji) == "❔":
+            data.add_maybe_participant(user.id)
 
 @bot.event
 async def on_reaction_remove(reaction, user):
@@ -232,16 +240,19 @@ async def on_reaction_remove(reaction, user):
             data.remove_yes_participant(user.id)
         elif str(reaction.emoji) == "❌":
             data.remove_no_participant(user.id)
+        elif str(reaction.emoji) == "❔":
+            data.remove_maybe_participant(user.id)
 
 @bot.tree.command(name="participants", description="Show who is attending")
 async def participants(interaction: discord.Interaction):
     yes_users = [f"<@{uid}>" for uid in data.yes_participants]
     no_users = [f"<@{uid}>" for uid in data.no_participants]
+    maybe_users = [f"<@{uid}>" for uid in data.maybe_participants]
     embed = discord.Embed(title="Event Participants", color=discord.Color.blue())
     embed.add_field(name="✅ Yes", value="\n".join(yes_users) or "None", inline=False)
     embed.add_field(name="❌ No", value="\n".join(no_users) or "None", inline=False)
+    embed.add_field(name="❔ Maybe", value="\n".join(maybe_users) or "None", inline=False)
     await interaction.response.send_message(embed=embed, ephemeral=False)
-
 # -------------------------
 # Voting commands (roles only)
 # -------------------------
@@ -257,13 +268,11 @@ async def startvote(interaction: discord.Interaction):
     description = "\n".join(f"{i+1}\u20E3 {g}" for i, g in enumerate(data.games))
     embed = discord.Embed(title="Game Voting!", description=description, color=discord.Color.purple())
 
-    # Send the voting message ONCE with @everyone
     msg = await interaction.channel.send(
         content="@everyone Vote on your games for Variety Friday!",
         embed=embed
     )
 
-    # Add reactions for each game
     for i in range(len(data.games)):
         await msg.add_reaction(f"{i+1}\u20E3")  # 1️⃣ 2️⃣ 3️⃣ etc
 
@@ -287,7 +296,6 @@ async def endvote(interaction: discord.Interaction):
         await interaction.response.send_message("Vote message not found.", ephemeral=True)
         return
 
-    # Count reactions
     vote_counts = {}
     for i, game in enumerate(data.games):
         emoji = f"{i+1}\u20E3"
@@ -297,11 +305,10 @@ async def endvote(interaction: discord.Interaction):
         else:
             vote_counts[game] = 0
 
-    # Determine winner (assumes no tie)
     if vote_counts:
         max_votes = max(vote_counts.values())
         winners = [g for g, v in vote_counts.items() if v == max_votes]
-        winner_text = winners[0]  # take first game if multiple have same votes
+        winner_text = winners[0]  # take first if tie
     else:
         winner_text = "No votes cast."
 
@@ -333,3 +340,8 @@ async def startevent(interaction: discord.Interaction):
 # Run bot
 # -------------------------
 bot.run(config.TOKEN)
+
+
+
+
+    
