@@ -178,10 +178,20 @@ async def reminder(interaction: discord.Interaction):
 async def addgame(interaction: discord.Interaction, name: str):
     # Block adding games if voting is open
     if data.vote_message_id is not None:
-        await interaction.response.send_message(
-            "You cannot add a game when voting is open - Be earlier next time!",
-            ephemeral=False
+        embed = discord.Embed(
+            title="🚨🚨 **TOO LATE!** 🚨🚨",
+            description=f"**{interaction.user.mention} just tried to add a game while voting is already open!**\n\n"
+                        f"Be earlier next time ⏰",
+            color=discord.Color.red()
         )
+        embed.set_image(url="https://media3.giphy.com/media/v1.Y2lkPTZjMDliOTUyeHZhc251N2RmYXh2eGs3ajZ1dXh3cHNkcTQ1c2ZwN3Fxd2pvMjV2OSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/cqdBfG6mFamru/giphy.gif")
+
+        msg = await interaction.channel.send(embed=embed)
+
+        # Add some extra mocking reactions
+        for emoji in ["⏰", "❌", "😂"]:
+            await msg.add_reaction(emoji)
+
         return
 
     # List of blocked keywords
@@ -194,14 +204,14 @@ async def addgame(interaction: discord.Interaction, name: str):
     if any(keyword.replace(" ", "") in name_clean for keyword in blocked_keywords):
         embed = discord.Embed(
             title="🚨🚨 **BLOCKED GAME ATTEMPT!** 🚨🚨",
-            description=f"**{interaction.user.mention} just tried to add Death Note!**\n**It's Variety Friday, please add a different game!**",
+            description=f"**{interaction.user.mention} just tried to add Death Note!**\n"
+                        f"**It's Variety Friday, please add a different game!**",
             color=discord.Color.red()
         )
         embed.set_image(url="https://media4.giphy.com/media/v1.Y2lkPTZjMDliOTUycmdtenhjMXJkaXY4c2JqMnpwcnYwZHFvcW9jMzlqMzh3ejNwY3dwdyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L9xNendArFokw/giphy.gif")  
 
         msg = await interaction.channel.send(embed=embed)
 
-        # Add extra dramatic emoji reactions
         for emoji in ["🚨", "❌", "😱"]:
             await msg.add_reaction(emoji)
 
@@ -216,7 +226,6 @@ async def addgame(interaction: discord.Interaction, name: str):
             "Cannot add more than 10 games or game already exists.",
             ephemeral=False
         )
-
 @bot.tree.command(name="removegame", description="Remove a game (roles only)")
 async def removegame(interaction: discord.Interaction, name: str):
     if not allowed(interaction):
@@ -371,3 +380,5 @@ async def startevent(interaction: discord.Interaction):
 # Run bot
 # -------------------------
 bot.run(config.TOKEN)
+
+            
