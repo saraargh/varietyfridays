@@ -332,7 +332,7 @@ async def startvote(interaction: discord.Interaction):
     vote_msg = await interaction.channel.send(embed=embed)
 
     # Add reactions for each option
-    for i in range(len(data.games) + 1):
+    for i in range(len(data.games)):
         await vote_msg.add_reaction(f"{i+1}\u20e3")
 
     # Save vote message ID
