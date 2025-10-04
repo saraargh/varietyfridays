@@ -129,23 +129,25 @@ async def register(interaction: discord.Interaction):
         await interaction.response.send_message("Event not found.", ephemeral=True)
         return
 
+    # Ping @everyone first
+    await interaction.channel.send(
+        "@everyone Variety Friday is coming! 🎉",
+        allowed_mentions=discord.AllowedMentions(everyone=True)
+    )
+
     embed = discord.Embed(
         title=f"{config.EVENT_NAME} is coming!",
         description=f"React below if you're attending!\n[event link 🗓️]({event.url})\nDon't forget to add your game suggestions using /addgame so we can vote later!",
         color=discord.Color.green()
     )
 
-    # Ping @everyone
-    await interaction.response.send_message(
-        "@everyone Variety Friday is coming! 🎉",
-        allowed_mentions=discord.AllowedMentions(everyone=True)
-    )
     msg = await interaction.channel.send(embed=embed)
     await msg.add_reaction("✅")  # Yes
     await msg.add_reaction("❌")  # No
     await msg.add_reaction("❔")  # Maybe
 
     data.reminder_message_id = msg.id
+    await interaction.response.send_message("Registration message sent!", ephemeral=True)
 
 # -------------------------
 # /reminder
@@ -163,24 +165,25 @@ async def reminder(interaction: discord.Interaction):
         await interaction.response.send_message("Event not found.", ephemeral=True)
         return
 
+    # Ping @everyone first
+    await interaction.channel.send(
+        "@everyone Variety Friday Reminder! 🎉",
+        allowed_mentions=discord.AllowedMentions(everyone=True)
+    )
+
     embed = discord.Embed(
         title=f"{config.EVENT_NAME} is coming!",
         description=f"React below if you're attending!\n[event link 🗓️]({event.url})",
         color=discord.Color.gold()
     )
 
-    # Ping @everyone
-    await interaction.response.send_message(
-        "@everyone Variety Friday Reminder! 🎉",
-        allowed_mentions=discord.AllowedMentions(everyone=True)
-    )
     msg = await interaction.channel.send(embed=embed)
     await msg.add_reaction("✅")  # Yes
     await msg.add_reaction("❌")  # No
     await msg.add_reaction("❔")  # Maybe
 
     data.reminder_message_id = msg.id
-
+    await interaction.response.send_message("Reminder sent!", ephemeral=True)
 # -------------------------
 # Helper: check blocked game names
 # -------------------------
@@ -301,6 +304,7 @@ async def resetgames(interaction: discord.Interaction):
 # -------------------------
 # /startvote command
 # -------------------------
+
 @bot.tree.command(name="startvote", description="Start the game vote")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def startvote(interaction: discord.Interaction):
@@ -313,22 +317,23 @@ async def startvote(interaction: discord.Interaction):
         await interaction.response.send_message("No games available to vote for.", ephemeral=True)
         return
 
+    # Ping @everyone first
+    await interaction.channel.send(
+        "@everyone It's time to vote! 🎉",
+        allowed_mentions=discord.AllowedMentions(everyone=True)
+    )
+
     # Build the list of games with emojis
     options = [f"{i+1}\u20e3 {game}" for i, game in enumerate(data.games)]
     options_text = "\n".join(options)
 
     embed = discord.Embed(
-        title="🗳️ TIME TO VOTE! 🗳️",
-        description=f"Vote for what we’ll play this Variety Friday!\n\n{options_text}",
+        title="👾 TIME TO VOTE! 👾",
+        description=f"Vote for what we’ll play this Variety Friday!🎮\n\n{options_text}",
         color=discord.Color.blue()
     )
     embed.set_footer(text="React below to cast your vote!")
 
-    # Send @everyone ping first
-    await interaction.response.send_message(
-        "@everyone It's time to vote! 🎉",
-        allowed_mentions=discord.AllowedMentions(everyone=True)
-    )
     vote_msg = await interaction.channel.send(embed=embed)
 
     # Add reactions for each option
@@ -337,8 +342,6 @@ async def startvote(interaction: discord.Interaction):
 
     # Save vote message ID
     data.vote_message_id = vote_msg.id
-    DataManager.save(data)
-
 # -------------------------
 # Participants tracking
 # -------------------------
