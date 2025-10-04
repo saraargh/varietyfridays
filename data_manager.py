@@ -12,6 +12,18 @@ class DataManager:
     def __init__(self, data_file: str = "bot_data.json"):
         self.data_file = Path(data_file)
         self._data = self._load_data()
+        
+        # Ensure all keys exist
+        self._data.setdefault("games", [])
+        self._data.setdefault("vote_message_id", None)
+        self._data.setdefault("last_event_id", None)
+        self._data.setdefault("reminder_message_id", None)
+        self._data.setdefault("yes_participants", [])
+        self._data.setdefault("no_participants", [])
+        self._data.setdefault("maybe_participants", [])
+        self._data.setdefault("tie_message_id", None)
+        self._data.setdefault("tie_options", None)
+        self.save_data()
     
     def _load_data(self) -> Dict[str, Any]:
         """Load data from JSON file."""
@@ -25,22 +37,13 @@ class DataManager:
                 logger.error(f"Error loading data from {self.data_file}: {e}")
         
         # Return default structure
-        return {
-            "games": [],
-            "vote_message_id": None,
-            "last_event_id": None,
-            "reminder_message_id": None,
-            "yes_participants": [],
-            "no_participants": [],
-            "maybe_participants": []
-        }
+        return {}
     
     def save_data(self) -> bool:
         """Save data to JSON file."""
         try:
             with open(self.data_file, 'w', encoding='utf-8') as f:
                 json.dump(self._data, f, indent=2, ensure_ascii=False)
-            logger.info(f"Data saved to {self.data_file}")
             return True
         except Exception as e:
             logger.error(f"Error saving data to {self.data_file}: {e}")
@@ -102,6 +105,27 @@ class DataManager:
     @reminder_message_id.setter
     def reminder_message_id(self, value: Optional[int]):
         self._data["reminder_message_id"] = value
+        self.save_data()
+    
+    # -------------------------
+    # Tie-breaking
+    # -------------------------
+    @property
+    def tie_message_id(self) -> Optional[int]:
+        return self._data.get("tie_message_id")
+    
+    @tie_message_id.setter
+    def tie_message_id(self, value: Optional[int]):
+        self._data["tie_message_id"] = value
+        self.save_data()
+    
+    @property
+    def tie_options(self) -> Optional[List[str]]:
+        return self._data.get("tie_options")
+    
+    @tie_options.setter
+    def tie_options(self, value: Optional[List[str]]):
+        self._data["tie_options"] = value
         self.save_data()
     
     # -------------------------
