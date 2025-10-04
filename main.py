@@ -209,7 +209,7 @@ async def addgame(interaction: discord.Interaction, name: str):
     if is_blocked_game(name):
         embed = discord.Embed(
             title="🚨🚨 BLOCKED GAME ATTEMPT! 🚨🚨",
-            description=f"**{interaction.user.mention} tried to add a blocked game!**",
+            description=f"**{interaction.user.mention} tried to add Death Note - That was not very *Variety Friday* of you! **",
             color=discord.Color.red()
         )
         embed.set_image(url="https://media4.giphy.com/media/v1.Y2lkPTZjMDliOTUycmdtenhjMXJkaXY4c2JqMnpwcnYwZHFvcW9jMzlqMzh3ejNwY3dwdyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L9xNendArFokw/giphy.gif")
