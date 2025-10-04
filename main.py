@@ -130,7 +130,7 @@ async def register(interaction: discord.Interaction):
         color=discord.Color.green()
     )
 
-    msg = await interaction.channel.send("@everyone", embed=embed)
+    msg = await interaction.channel.send(embed=embed)
     await msg.add_reaction("✅")  # Yes
     await msg.add_reaction("❌")  # No
     await msg.add_reaction("❔")  # Maybe
@@ -159,7 +159,7 @@ async def reminder(interaction: discord.Interaction):
         color=discord.Color.gold()
     )
 
-    msg = await interaction.channel.send("@everyone", embed=embed)
+    msg = await interaction.channel.send(embed=embed)
     await msg.add_reaction("✅")  # Yes
     await msg.add_reaction("❌")  # No
     await msg.add_reaction("❔")  # Maybe
@@ -172,6 +172,14 @@ async def reminder(interaction: discord.Interaction):
 # -------------------------
 @bot.tree.command(name="addgame", description="Add a game to vote on")
 async def addgame(interaction: discord.Interaction, name: str):
+    # Block adding games if voting is open
+    if data.vote_message_id is not None:
+        await interaction.response.send_message(
+            "You cannot add a game when voting is open - Be earlier next time!",
+            ephemeral=False
+        )
+        return
+
     # List of blocked keywords
     blocked_keywords = ["death note", "dn", "dnkw", "death note killer within"]
 
@@ -200,13 +208,10 @@ async def addgame(interaction: discord.Interaction, name: str):
         games_list = ", ".join(data.games)
         await interaction.response.send_message(f"Game added: {name}\nCurrent games: {games_list}", ephemeral=False)
     else:
-        await interaction.response.send_message("Cannot add more than 10 games or game already exists.", ephemeral=True)
-
-    if data.addgame(name):
-        games_list = ", ".join(data.games)
-        await interaction.response.send_message(f"Game added: {name}\nCurrent games: {games_list}", ephemeral=False)
-    else:
-        await interaction.response.send_message("Cannot add more than 10 games or game already exists.", ephemeral=True)
+        await interaction.response.send_message(
+            "Cannot add more than 10 games or game already exists.",
+            ephemeral=False
+        )
 
 @bot.tree.command(name="removegame", description="Remove a game (roles only)")
 async def removegame(interaction: discord.Interaction, name: str):
@@ -278,6 +283,7 @@ async def participants(interaction: discord.Interaction):
     embed.add_field(name="❌ No", value="\n".join(no_users) or "None", inline=False)
     embed.add_field(name="❔ Maybe", value="\n".join(maybe_users) or "None", inline=False)
     await interaction.response.send_message(embed=embed, ephemeral=False)
+
 # -------------------------
 # Voting commands (roles only)
 # -------------------------
@@ -293,17 +299,13 @@ async def startvote(interaction: discord.Interaction):
     description = "\n".join(f"{i+1}\u20E3 {g}" for i, g in enumerate(data.games))
     embed = discord.Embed(title="Game Voting!", description=description, color=discord.Color.purple())
 
-    msg = await interaction.channel.send(
-        content="@everyone Vote on your games for Variety Friday!",
-        embed=embed
-    )
+    msg = await interaction.channel.send(embed=embed)
 
     for i in range(len(data.games)):
         await msg.add_reaction(f"{i+1}\u20E3")  # 1️⃣ 2️⃣ 3️⃣ etc
 
     data.vote_message_id = msg.id
     await interaction.response.send_message("Voting started!", ephemeral=True)
-
 
 @bot.tree.command(name="endvote", description="End voting and announce winner (roles only)")
 async def endvote(interaction: discord.Interaction):
@@ -337,7 +339,7 @@ async def endvote(interaction: discord.Interaction):
     else:
         winner_text = "No votes cast."
 
-    await interaction.channel.send(f"@everyone Voting has ended, {winner_text} is the winner! 🏆")
+    await interaction.channel.send(f"Voting has ended, {winner_text} is the winner! 🏆")
     data.vote_message_id = None
 
 # -------------------------
@@ -350,7 +352,7 @@ async def startevent(interaction: discord.Interaction):
         return
 
     yes_users = [f"<@{uid}>" for uid in data.yes_participants]
-    announce_msg = await interaction.channel.send(f"@everyone {config.EVENT_NAME} is starting!")
+    announce_msg = await interaction.channel.send(f"{config.EVENT_NAME} is starting!")
     for uid in data.yes_participants:
         user = await bot.fetch_user(uid)
         if user:
@@ -365,8 +367,3 @@ async def startevent(interaction: discord.Interaction):
 # Run bot
 # -------------------------
 bot.run(config.TOKEN)
-
-
-
-
-    
