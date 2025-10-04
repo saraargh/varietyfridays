@@ -114,23 +114,18 @@ async def createevent(interaction: discord.Interaction):
     await interaction.response.send_message(f"Event created: {event.name} for {start_time.strftime('%A, %d %B %Y %H:%M %Z')}", ephemeral=True)
 
 # -------------------------
-# /register command (fixed)
+# /register command
 # -------------------------
 @bot.tree.command(name="register", description="Announce the event and allow people to register")
 async def register(interaction: discord.Interaction):
     global data
     guild = get_guild(bot)
     if not guild or not data.last_event_id:
-        await interaction.response.send_message("No event exists. Please create one first.", ephemeral=True)
         return
 
     event = await guild.fetch_scheduled_event(data.last_event_id)
     if not event:
-        await interaction.response.send_message("Event not found.", ephemeral=True)
         return
-
-    # Immediately acknowledge command to prevent error
-    await interaction.response.send_message("Registration announced!", ephemeral=True)
 
     # Ping @everyone
     await interaction.channel.send(
@@ -152,23 +147,18 @@ async def register(interaction: discord.Interaction):
     data.reminder_message_id = msg.id
 
 # -------------------------
-# /reminder command (fixed)
+# /reminder command
 # -------------------------
 @bot.tree.command(name="reminder", description="Send a reminder about the event")
 async def reminder(interaction: discord.Interaction):
     global data
     guild = get_guild(bot)
     if not guild or not data.last_event_id:
-        await interaction.response.send_message("No event exists. Please create one first.", ephemeral=True)
         return
 
     event = await guild.fetch_scheduled_event(data.last_event_id)
     if not event:
-        await interaction.response.send_message("Event not found.", ephemeral=True)
         return
-
-    # Immediately acknowledge command to prevent error
-    await interaction.response.send_message("Reminder announced!", ephemeral=True)
 
     # Ping @everyone
     await interaction.channel.send(
