@@ -118,6 +118,7 @@ async def createevent(interaction: discord.Interaction):
 # -------------------------
 @bot.tree.command(name="register", description="Announce the event and allow people to register")
 async def register(interaction: discord.Interaction):
+    global data
     guild = get_guild(bot)
     if not guild or not data.last_event_id:
         await interaction.response.send_message("No event exists. Please create one first.", ephemeral=True)
@@ -134,19 +135,24 @@ async def register(interaction: discord.Interaction):
         color=discord.Color.green()
     )
 
+    # Ping @everyone
+    await interaction.response.send_message(
+        "@everyone Variety Friday is coming! 🎉",
+        allowed_mentions=discord.AllowedMentions(everyone=True)
+    )
     msg = await interaction.channel.send(embed=embed)
     await msg.add_reaction("✅")  # Yes
     await msg.add_reaction("❌")  # No
     await msg.add_reaction("❔")  # Maybe
 
     data.reminder_message_id = msg.id
-    await interaction.response.send_message("Registration message sent!", ephemeral=True)
 
 # -------------------------
 # /reminder
 # -------------------------
 @bot.tree.command(name="reminder", description="Send a reminder about the event")
 async def reminder(interaction: discord.Interaction):
+    global data
     guild = get_guild(bot)
     if not guild or not data.last_event_id:
         await interaction.response.send_message("No event exists. Please create one first.", ephemeral=True)
@@ -158,18 +164,23 @@ async def reminder(interaction: discord.Interaction):
         return
 
     embed = discord.Embed(
-        title=f"{config.EVENT_NAME} Reminder!",
+        title=f"{config.EVENT_NAME} is coming!",
         description=f"React below if you're attending!\n[event link 🗓️]({event.url})",
         color=discord.Color.gold()
     )
 
+    # Ping @everyone
+    await interaction.response.send_message(
+        "@everyone Variety Friday Reminder! 🎉",
+        allowed_mentions=discord.AllowedMentions(everyone=True)
+    )
     msg = await interaction.channel.send(embed=embed)
     await msg.add_reaction("✅")  # Yes
     await msg.add_reaction("❌")  # No
     await msg.add_reaction("❔")  # Maybe
 
     data.reminder_message_id = msg.id
-    await interaction.response.send_message("Reminder sent!", ephemeral=True)
+
 # -------------------------
 # Helper: check blocked game names
 # -------------------------
@@ -209,10 +220,11 @@ def is_blocked_game(name: str) -> bool:
     return False
 
 # -------------------------
-# Games commands
+# /addgame command
 # -------------------------
 @bot.tree.command(name="addgame", description="Add a game to vote on")
 async def addgame(interaction: discord.Interaction, name: str):
+    global data
     # Only block if voting is actually open
     if data.vote_message_id is not None and getattr(data, 'tie_message_id', None) is None:
         embed = discord.Embed(
@@ -246,9 +258,12 @@ async def addgame(interaction: discord.Interaction, name: str):
             "Cannot add more than 10 games or game already exists.",
             ephemeral=False
         )
-
+# -------------------------
+# /removegame command
+# -------------------------
 @bot.tree.command(name="removegame", description="Remove a game (roles only)")
 async def removegame(interaction: discord.Interaction, name: str):
+    global data
     if not allowed(interaction):
         await interaction.response.send_message("You don't have permission.", ephemeral=True)
         return
@@ -257,8 +272,12 @@ async def removegame(interaction: discord.Interaction, name: str):
     else:
         await interaction.response.send_message("Game not found.", ephemeral=True)
 
+# -------------------------
+# /listgames command
+# -------------------------
 @bot.tree.command(name="listgames", description="List all current games")
 async def listgames(interaction: discord.Interaction):
+    global data
     if not data.games:
         await interaction.response.send_message("No games added yet.", ephemeral=False)
         return
@@ -267,8 +286,12 @@ async def listgames(interaction: discord.Interaction):
         ephemeral=False
     )
 
+# -------------------------
+# /resetgames command
+# -------------------------
 @bot.tree.command(name="resetgames", description="Reset all games (roles only)")
 async def resetgames(interaction: discord.Interaction):
+    global data
     if not allowed(interaction):
         await interaction.response.send_message("You don't have permission to reset games.", ephemeral=True)
         return
@@ -281,8 +304,7 @@ async def resetgames(interaction: discord.Interaction):
 @bot.tree.command(name="startvote", description="Start the game vote")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def startvote(interaction: discord.Interaction):
-    data = DataManager.load()
-
+    global data
     if data.vote_message_id is not None:
         await interaction.response.send_message("A vote is already in progress!", ephemeral=True)
         return
@@ -303,8 +325,11 @@ async def startvote(interaction: discord.Interaction):
     )
     embed.set_footer(text="React below to cast your vote!")
 
-    # Send @everyone as a separate message and then the embed
-    await interaction.response.send_message("@everyone It's time to vote! 🎉", allowed_mentions=discord.AllowedMentions(everyone=True))
+    # Send @everyone ping first
+    await interaction.response.send_message(
+        "@everyone It's time to vote! 🎉",
+        allowed_mentions=discord.AllowedMentions(everyone=True)
+    )
     vote_msg = await interaction.channel.send(embed=embed)
 
     # Add reactions for each option
@@ -320,6 +345,7 @@ async def startvote(interaction: discord.Interaction):
 # -------------------------
 @bot.event
 async def on_reaction_add(reaction, user):
+    global data
     if user.bot:
         return
     if reaction.message.id == data.reminder_message_id:
@@ -332,6 +358,7 @@ async def on_reaction_add(reaction, user):
 
 @bot.event
 async def on_reaction_remove(reaction, user):
+    global data
     if user.bot:
         return
     if reaction.message.id == data.reminder_message_id:
@@ -342,8 +369,12 @@ async def on_reaction_remove(reaction, user):
         elif str(reaction.emoji) == "❔":
             data.remove_maybe_participant(user.id)
 
+# -------------------------
+# /participants command
+# -------------------------
 @bot.tree.command(name="participants", description="Show who is attending")
 async def participants(interaction: discord.Interaction):
+    global data
     yes_users = [f"<@{uid}>" for uid in data.yes_participants]
     no_users = [f"<@{uid}>" for uid in data.no_participants]
     maybe_users = [f"<@{uid}>" for uid in data.maybe_participants]
@@ -358,6 +389,7 @@ async def participants(interaction: discord.Interaction):
 # -------------------------
 @bot.tree.command(name="endvote", description="End voting and announce winner (roles only)")
 async def endvote(interaction: discord.Interaction):
+    global data
     if not allowed(interaction):
         await interaction.response.send_message("You don't have permission.", ephemeral=True)
         return
@@ -422,10 +454,9 @@ async def endvote(interaction: discord.Interaction):
 # -------------------------
 # /endtiebreak command
 # -------------------------
-
-
 @bot.tree.command(name="endtiebreak", description="End the tiebreak voting and announce winner(s)")
 async def endtiebreak(interaction: discord.Interaction):
+    global data
     if not allowed(interaction):
         await interaction.response.send_message("You don't have permission.", ephemeral=True)
         return
@@ -457,7 +488,7 @@ async def endtiebreak(interaction: discord.Interaction):
 
     embed = discord.Embed(
         title=f"🏆 TIE BREAKER RESULT! 🏆",
-        description=f"The winner(s): **{winner_text}** - See you at Variety Friday! 🎮",
+        description=f"**{winner_text}** won the tie breaker - See you at Variety Friday! 🎮",
         color=discord.Color.green()
     )
     embed.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUyM2g0dWVqcnBpcTN1NGJzMDYyMnY4OHFwMXZiOHlyOXJ1MGQ2aTdwMCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/blSTtZehjAZ8I/giphy.gif")
@@ -472,6 +503,7 @@ async def endtiebreak(interaction: discord.Interaction):
 # -------------------------
 @bot.tree.command(name="startevent", description="Announce the start of the event")
 async def startevent(interaction: discord.Interaction):
+    global data
     if not allowed(interaction):
         await interaction.response.send_message("You don't have permission to start the event.", ephemeral=True)
         return
@@ -479,17 +511,18 @@ async def startevent(interaction: discord.Interaction):
     yes_users = [f"<@{uid}>" for uid in data.yes_participants]
     announce_msg = await interaction.channel.send(f"{config.EVENT_NAME} is starting now! 🎉")
     for uid in data.yes_participants:
-        user = await bot.fetch_user(uid)
-        if user:
-            try:
+        try:
+            user = await bot.fetch_user(uid)
+            if user:
                 await user.send(f"{config.EVENT_NAME} is starting now! See you there!")
-            except:
-                pass
+        except:
+            pass
 
     await interaction.response.send_message("Event started announcements sent!", ephemeral=True)
 
 # -------------------------
-# Run bot
+# Run the bot
 # -------------------------
 bot.run(config.TOKEN)
+
 
