@@ -315,7 +315,6 @@ async def startvote(interaction: discord.Interaction):
 
     # Build the list of games with emojis
     options = [f"{i+1}\u20e3 {game}" for i, game in enumerate(data.games)]
-    options.append(f"{len(data.games)+1}\u20e3 All of them")
     options_text = "\n".join(options)
 
     embed = discord.Embed(
