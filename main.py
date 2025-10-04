@@ -209,7 +209,7 @@ async def addgame(interaction: discord.Interaction, name: str):
     if is_blocked_game(name):
         embed = discord.Embed(
             title="🚨🚨 BLOCKED GAME ATTEMPT! 🚨🚨",
-            description=f"**{interaction.user.mention} tried to add Death Note - That was not very *Variety Friday* of you! **",
+            description=f"**{interaction.user.mention} tried to add Death Note - That was not very *Variety Friday* of you! Please add another game 💀 **",
             color=discord.Color.red()
         )
         embed.set_image(url="https://media4.giphy.com/media/v1.Y2lkPTZjMDliOTUycmdtenhjMXJkaXY4c2JqMnpwcnYwZHFvcW9jMzlqMzh3ejNwY3dwdyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L9xNendArFokw/giphy.gif")
@@ -357,8 +357,8 @@ async def endvote(interaction: discord.Interaction):
     elif len(winners) == 1:
         winner_text = winners[0]
         embed = discord.Embed(
-            title=f"🏆 The winner is: {winner_text} 🏆",
-            description=f"Everyone get ready for **{winner_text}**! 🎮",
+            title=f"🏆 WE HAVE A WINNER! 🏆",
+            description=f"**{winner_text}** won the vote - See you at Variety Friday! 🎮",
             color=discord.Color.green()
         )
         embed.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUyM2g0dWVqcnBpcTN1NGJzMDYyMnY4OHFwMXZiOHlyOXJ1MGQ2aTdwMCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/blSTtZehjAZ8I/giphy.gif")
@@ -417,8 +417,8 @@ async def endtiebreak(interaction: discord.Interaction):
         winner_text = winners[0]
 
     embed = discord.Embed(
-        title=f"🎲 We're rolling with: {winner_text}! 🏆",
-        description=f"Get ready to play **{winner_text}**! 🎮",
+        title=f"🏆 WE'VE GOT A TIE BREAKER! 🏆",
+        description=f"Looks like we're rolling with **{winner_text}** - See you at Variety Friday! 🎮",
         color=discord.Color.green()
     )
     embed.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUyM2g0dWVqcnBpcTN1NGJzMDYyMnY4OHFwMXZiOHlyOXJ1MGQ2aTdwMCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/blSTtZehjAZ8I/giphy.gif")
