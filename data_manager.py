@@ -54,7 +54,6 @@ class DataManager:
         return self._data.get("games", [])
     
     def addgame(self, game_name: str) -> bool:
-        """Add a game to the list (max 10)."""
         if len(self.games) >= 10:
             return False
         if game_name.lower() not in [g.lower() for g in self.games]:
@@ -64,7 +63,6 @@ class DataManager:
         return False
     
     def removegame(self, game_name: str) -> bool:
-        """Remove a game from the list."""
         for game in self.games:
             if game.lower() == game_name.lower():
                 self._data["games"].remove(game)
@@ -73,7 +71,6 @@ class DataManager:
         return False
     
     def resetgames(self):
-        """Clear all games."""
         self._data["games"] = []
         self.save_data()
     
@@ -117,13 +114,12 @@ class DataManager:
     @property
     def no_participants(self) -> Set[int]:
         return set(self._data.get("no_participants", []))
-
+    
     @property
     def maybe_participants(self) -> Set[int]:
         return set(self._data.get("maybe_participants", []))
     
     def add_yes_participant(self, user_id: int):
-        """Add a user to yes participants and remove from no/maybe."""
         yes_set = set(self._data.get("yes_participants", []))
         no_set = set(self._data.get("no_participants", []))
         maybe_set = set(self._data.get("maybe_participants", []))
@@ -138,7 +134,6 @@ class DataManager:
         self.save_data()
     
     def add_no_participant(self, user_id: int):
-        """Add a user to no participants and remove from yes/maybe."""
         no_set = set(self._data.get("no_participants", []))
         yes_set = set(self._data.get("yes_participants", []))
         maybe_set = set(self._data.get("maybe_participants", []))
@@ -153,7 +148,6 @@ class DataManager:
         self.save_data()
     
     def add_maybe_participant(self, user_id: int):
-        """Add a user to maybe participants and remove from yes/no."""
         maybe_set = set(self._data.get("maybe_participants", []))
         yes_set = set(self._data.get("yes_participants", []))
         no_set = set(self._data.get("no_participants", []))
