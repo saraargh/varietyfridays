@@ -388,10 +388,10 @@ async def endvote(interaction: discord.Interaction):
         tied_games.append("All of them")  # Include "All of them" as last option
         tied_text = "\n".join(f"{i+1}. {g}" for i, g in enumerate(tied_games))
         embed = discord.Embed(
-            title="⚠️ IT'S A TIE! ⚠️",
-            description=f"The following games tied, vote again to break the tie!\n{tied_text}",
-            color=discord.Color.red()
-        )
+    title="⚠️ IT'S A TIE! ⚠️",
+    description=f"The following games tied, vote again to break the tie!\n{tied_text}",
+    color=discord.Color.red()
+)
         embed.set_image(url="https://media0.giphy.com/media/v1.Y2lkPTZjMDliOTUya2pmcnM5Y25kcGprZmlhbnVycDlmNjIxa2FhYWFkYWI2czBzenRmcyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT3i0VNrc6Ny7bxfJm/giphy.gif")
         tie_msg = await channel.send(embed=embed)
 
