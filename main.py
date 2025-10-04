@@ -114,7 +114,7 @@ async def createevent(interaction: discord.Interaction):
     await interaction.response.send_message(f"Event created: {event.name} for {start_time.strftime('%A, %d %B %Y %H:%M %Z')}", ephemeral=True)
 
 # -------------------------
-# /register
+# /register command
 # -------------------------
 @bot.tree.command(name="register", description="Announce the event and allow people to register")
 async def register(interaction: discord.Interaction):
@@ -129,11 +129,11 @@ async def register(interaction: discord.Interaction):
         await interaction.response.send_message("Event not found.", ephemeral=True)
         return
 
-    # Respond ephemeral first to avoid timeout
+    # Respond immediately to avoid interaction timeout
     await interaction.response.send_message("Registration message sent!", ephemeral=True)
 
-    # Ping @everyone publicly
-    await interaction.channel.send(
+    # Public ping @everyone
+    await interaction.followup.send(
         "@everyone Variety Friday is coming! 🎉",
         allowed_mentions=discord.AllowedMentions(everyone=True)
     )
@@ -144,17 +144,16 @@ async def register(interaction: discord.Interaction):
         description=f"React below if you're attending!\n[event link 🗓️]({event.url})\nDon't forget to add your game suggestions using /addgame so we can vote later!",
         color=discord.Color.green()
     )
+    msg = await interaction.followup.send(embed=embed, wait=True)
 
-    msg = await interaction.channel.send(embed=embed)
-    await msg.add_reaction("✅")  # Yes
-    await msg.add_reaction("❌")  # No
-    await msg.add_reaction("❔")  # Maybe
+    await msg.add_reaction("✅")
+    await msg.add_reaction("❌")
+    await msg.add_reaction("❔")
 
     data.reminder_message_id = msg.id
 
-
 # -------------------------
-# /reminder
+# /reminder command
 # -------------------------
 @bot.tree.command(name="reminder", description="Send a reminder about the event")
 async def reminder(interaction: discord.Interaction):
@@ -169,11 +168,11 @@ async def reminder(interaction: discord.Interaction):
         await interaction.response.send_message("Event not found.", ephemeral=True)
         return
 
-    # Respond ephemeral first
+    # Respond immediately
     await interaction.response.send_message("Reminder sent!", ephemeral=True)
 
-    # Ping @everyone publicly
-    await interaction.channel.send(
+    # Public ping @everyone
+    await interaction.followup.send(
         "@everyone Variety Friday Reminder! 🎉",
         allowed_mentions=discord.AllowedMentions(everyone=True)
     )
@@ -184,13 +183,14 @@ async def reminder(interaction: discord.Interaction):
         description=f"React below if you're attending!\n[event link 🗓️]({event.url})",
         color=discord.Color.gold()
     )
+    msg = await interaction.followup.send(embed=embed, wait=True)
 
-    msg = await interaction.channel.send(embed=embed)
-    await msg.add_reaction("✅")  # Yes
-    await msg.add_reaction("❌")  # No
-    await msg.add_reaction("❔")  # Maybe
+    await msg.add_reaction("✅")
+    await msg.add_reaction("❌")
+    await msg.add_reaction("❔")
 
     data.reminder_message_id = msg.id
+
 
 # -------------------------
 # Helper: check blocked game names
