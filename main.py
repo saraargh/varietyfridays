@@ -361,7 +361,7 @@ async def on_reaction_add(reaction, user):
             data.add_yes_participant(user.id)
             # DM the user for registering yes
             try:
-                await user.send(f"Thanks for registering for {config.EVENT_NAME}! 🎉")
+                await user.send(f"Thanks for registering for {config.EVENT_NAME} - See you there! 🎉")
             except:
                 pass
         elif str(reaction.emoji) == "❌":
@@ -523,7 +523,7 @@ async def startevent(interaction: discord.Interaction):
         return
 
     yes_users = [f"<@{uid}>" for uid in data.yes_participants]
-    announce_msg = await interaction.channel.send(f"{config.EVENT_NAME} is starting now! 🎉")
+    announce_msg = await interaction.channel.send(f"@everyone {config.EVENT_NAME} is starting now! 🎉")
     for uid in data.yes_participants:
         try:
             user = await bot.fetch_user(uid)
