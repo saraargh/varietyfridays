@@ -172,10 +172,35 @@ async def reminder(interaction: discord.Interaction):
 # -------------------------
 @bot.tree.command(name="addgame", description="Add a game to vote on")
 async def addgame(interaction: discord.Interaction, name: str):
-    blocked_games = ["death note", "dn", "dnkw", "death note killer within"]
-    if name.lower() in blocked_games:
-        await interaction.channel.send(f"@everyone {interaction.user.mention} just tried to add death note, its variety friday please add a different game!")
+    # List of blocked keywords
+    blocked_keywords = ["death note", "dn", "dnkw", "death note killer within"]
+
+    # Clean the game name: lowercase + remove spaces
+    name_clean = name.lower().replace(" ", "")
+
+    # Check if the game matches any blocked keyword
+    if any(keyword.replace(" ", "") in name_clean for keyword in blocked_keywords):
+        embed = discord.Embed(
+            title="🚨🚨 **BLOCKED GAME ATTEMPT!** 🚨🚨",
+            description=f"**{interaction.user.mention} just tried to add Death Note!**\n**It's Variety Friday, please add a different game!**",
+            color=discord.Color.red()
+        )
+        embed.set_image(url="https://media4.giphy.com/media/v1.Y2lkPTZjMDliOTUycmdtenhjMXJkaXY4c2JqMnpwcnYwZHFvcW9jMzlqMzh3ejNwY3dwdyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L9xNendArFokw/giphy.gif")  
+
+        msg = await interaction.channel.send(embed=embed)
+
+        # Add extra dramatic emoji reactions
+        for emoji in ["🚨", "❌", "😱"]:
+            await msg.add_reaction(emoji)
+
         return
+
+    # Add game normally if not blocked
+    if data.addgame(name):
+        games_list = ", ".join(data.games)
+        await interaction.response.send_message(f"Game added: {name}\nCurrent games: {games_list}", ephemeral=False)
+    else:
+        await interaction.response.send_message("Cannot add more than 10 games or game already exists.", ephemeral=True)
 
     if data.addgame(name):
         games_list = ", ".join(data.games)
