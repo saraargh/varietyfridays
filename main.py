@@ -129,16 +129,16 @@ async def register(interaction: discord.Interaction):
         await interaction.response.send_message("Event not found.", ephemeral=True)
         return
 
-    # Respond immediately to avoid interaction timeout
-    await interaction.response.send_message("Registration message sent!", ephemeral=True)
+    # 1️⃣ Respond immediately to interaction
+    await interaction.response.send_message("Registration message is being sent...", ephemeral=True)
 
-    # Public ping @everyone
+    # 2️⃣ Followup: @everyone ping
     await interaction.followup.send(
         "@everyone Variety Friday is coming! 🎉",
         allowed_mentions=discord.AllowedMentions(everyone=True)
     )
 
-    # Embed with reactions
+    # 3️⃣ Followup: embed with reactions
     embed = discord.Embed(
         title=f"{config.EVENT_NAME} is coming!",
         description=f"React below if you're attending!\n[event link 🗓️]({event.url})\nDon't forget to add your game suggestions using /addgame so we can vote later!",
@@ -146,11 +146,12 @@ async def register(interaction: discord.Interaction):
     )
     msg = await interaction.followup.send(embed=embed, wait=True)
 
-    await msg.add_reaction("✅")
-    await msg.add_reaction("❌")
-    await msg.add_reaction("❔")
+    await msg.add_reaction("✅")  # Yes
+    await msg.add_reaction("❌")  # No
+    await msg.add_reaction("❔")  # Maybe
 
     data.reminder_message_id = msg.id
+
 
 # -------------------------
 # /reminder command
@@ -168,16 +169,16 @@ async def reminder(interaction: discord.Interaction):
         await interaction.response.send_message("Event not found.", ephemeral=True)
         return
 
-    # Respond immediately
-    await interaction.response.send_message("Reminder sent!", ephemeral=True)
+    # 1️⃣ Respond immediately to interaction
+    await interaction.response.send_message("Reminder is being sent...", ephemeral=True)
 
-    # Public ping @everyone
+    # 2️⃣ Followup: @everyone ping
     await interaction.followup.send(
         "@everyone Variety Friday Reminder! 🎉",
         allowed_mentions=discord.AllowedMentions(everyone=True)
     )
 
-    # Embed with reactions
+    # 3️⃣ Followup: embed with reactions
     embed = discord.Embed(
         title=f"{config.EVENT_NAME} is coming!",
         description=f"React below if you're attending!\n[event link 🗓️]({event.url})",
@@ -185,9 +186,9 @@ async def reminder(interaction: discord.Interaction):
     )
     msg = await interaction.followup.send(embed=embed, wait=True)
 
-    await msg.add_reaction("✅")
-    await msg.add_reaction("❌")
-    await msg.add_reaction("❔")
+    await msg.add_reaction("✅")  # Yes
+    await msg.add_reaction("❌")  # No
+    await msg.add_reaction("❔")  # Maybe
 
     data.reminder_message_id = msg.id
 
