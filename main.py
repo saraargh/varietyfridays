@@ -278,28 +278,42 @@ async def resetgames(interaction: discord.Interaction):
 # -------------------------
 # /startvote command
 # -------------------------
-@bot.tree.command(name="startvote", description="Start voting for games")
+@bot.tree.command(name="startvote", description="Start the game vote")
+@app_commands.checks.has_permissions(manage_messages=True)
 async def startvote(interaction: discord.Interaction):
-    if not allowed(interaction):
-        await interaction.response.send_message("You don't have permission to start voting.", ephemeral=True)
+    data = DataManager.load()
+
+    if data.vote_message_id is not None:
+        await interaction.response.send_message("A vote is already in progress!", ephemeral=True)
         return
+
     if not data.games:
-        await interaction.response.send_message("No games to vote for. Add some with /addgame first.", ephemeral=True)
+        await interaction.response.send_message("No games available to vote for.", ephemeral=True)
         return
+
+    # Build the list of games with emojis
+    options = [f"{i+1}\u20e3 {game}" for i, game in enumerate(data.games)]
+    options.append(f"{len(data.games)+1}\u20e3 All of them")
+    options_text = "\n".join(options)
 
     embed = discord.Embed(
-        title="Vote for the game!",
-        description="\n".join(f"{i+1}. {g}" for i, g in enumerate(data.games)),
-        color=discord.Color.purple()
+        title="🗳️ TIME TO VOTE! 🗳️",
+        description=f"Vote for what we’ll play this Variety Friday!\n\n{options_text}",
+        color=discord.Color.blue()
     )
+    embed.set_footer(text="React below to cast your vote!")
 
-    msg = await interaction.channel.send(embed=embed)
+    # Send @everyone as a separate message and then the embed
+    await interaction.response.send_message("@everyone It's time to vote! 🎉", allowed_mentions=discord.AllowedMentions(everyone=True))
+    vote_msg = await interaction.channel.send(embed=embed)
 
-    for i in range(len(data.games)):
-        await msg.add_reaction(f"{i+1}\u20E3")
+    # Add reactions for each option
+    for i in range(len(data.games) + 1):
+        await vote_msg.add_reaction(f"{i+1}\u20e3")
 
-    data.vote_message_id = msg.id
-    await interaction.response.send_message("Voting started!", ephemeral=True)
+    # Save vote message ID
+    data.vote_message_id = vote_msg.id
+    DataManager.save(data)
 
 # -------------------------
 # Participants tracking
