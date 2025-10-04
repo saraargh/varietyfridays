@@ -170,23 +170,41 @@ async def reminder(interaction: discord.Interaction):
 
     data.reminder_message_id = msg.id
     await interaction.response.send_message("Reminder sent!", ephemeral=True)
-
 # -------------------------
 # Helper: check blocked game names
 # -------------------------
 def is_blocked_game(name: str) -> bool:
-    """Return True if name matches blocked words (Death Note, L, etc.)"""
+    """Return True if name matches blocked words (Death Note, L, etc.), including leetspeak and separators."""
     blocked_keywords = [
         "death note", "dn", "dnkw", "death note killer within",
         "cooked", "washed", "kira", "downtown", "toy town", "toytown"
     ]
-    name_clean = re.sub(r'\s+', '', name.lower())
+
+    # Normalize leetspeak
+    leet_map = str.maketrans({
+        '4': 'a',
+        '@': 'a',
+        '3': 'e',
+        '1': 'i',
+        '!': 'i',
+        '0': 'o',
+        '5': 's',
+        '$': 's',
+        '7': 't'
+    })
+    name_normalized = name.lower().translate(leet_map)
+
+    # Remove all non-alphanumeric characters (dots, spaces, punctuation)
+    name_clean = re.sub(r'[^a-z0-9]', '', name_normalized)
+
     # Check for L on its own
-    if name.strip().lower() == "l":
+    if re.fullmatch(r'\s*L\s*', name, re.IGNORECASE):
         return True
-    # Check other blocked words anywhere in the name
+
+    # Check blocked keywords anywhere
     for word in blocked_keywords:
-        if word.replace(" ", "") in name_clean:
+        word_clean = re.sub(r'[^a-z0-9]', '', word.lower())
+        if word_clean in name_clean:
             return True
     return False
 
@@ -201,6 +219,7 @@ async def addgame(interaction: discord.Interaction, name: str):
             description=f"**{interaction.user.mention} tried to add a game while voting is open!**",
             color=discord.Color.red()
         )
+        embed.set_image(url="https://media0.giphy.com/media/v1.Y2lkPTZjMDliOTUyZG11a3pocGNuYmtmajkzdjFsZ3NkdjgwMjdmdGV4Z3hjdzI5a2pmMyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT5LMPAKcI1rghxqq4/giphy.gif")
         msg = await interaction.channel.send(embed=embed)
         for emoji in ["⏰", "❌", "😂"]:
             await msg.add_reaction(emoji)
