@@ -129,8 +129,11 @@ async def register(interaction: discord.Interaction):
         await interaction.response.send_message("Event not found.", ephemeral=True)
         return
 
-    # Ping @everyone first
-    await interaction.channel.send(
+    # First, send ephemeral response so Discord is happy
+    await interaction.response.send_message("✅ Registration message sent!", ephemeral=True)
+
+    # Then send @everyone ping and embed using followup
+    await interaction.followup.send(
         "@everyone Variety Friday is coming! 🎉",
         allowed_mentions=discord.AllowedMentions(everyone=True)
     )
@@ -141,13 +144,13 @@ async def register(interaction: discord.Interaction):
         color=discord.Color.green()
     )
 
-    msg = await interaction.channel.send(embed=embed)
+    msg = await interaction.followup.send(embed=embed)
     await msg.add_reaction("✅")  # Yes
     await msg.add_reaction("❌")  # No
     await msg.add_reaction("❔")  # Maybe
 
     data.reminder_message_id = msg.id
-    await interaction.response.send_message("Registration message sent!", ephemeral=True)
+
 
 # -------------------------
 # /reminder
@@ -165,8 +168,11 @@ async def reminder(interaction: discord.Interaction):
         await interaction.response.send_message("Event not found.", ephemeral=True)
         return
 
-    # Ping @everyone first
-    await interaction.channel.send(
+    # First, send ephemeral response
+    await interaction.response.send_message("✅ Reminder sent!", ephemeral=True)
+
+    # Then send @everyone ping and embed using followup
+    await interaction.followup.send(
         "@everyone Variety Friday Reminder! 🎉",
         allowed_mentions=discord.AllowedMentions(everyone=True)
     )
@@ -177,13 +183,12 @@ async def reminder(interaction: discord.Interaction):
         color=discord.Color.gold()
     )
 
-    msg = await interaction.channel.send(embed=embed)
+    msg = await interaction.followup.send(embed=embed)
     await msg.add_reaction("✅")  # Yes
     await msg.add_reaction("❌")  # No
     await msg.add_reaction("❔")  # Maybe
 
     data.reminder_message_id = msg.id
-    await interaction.response.send_message("Reminder sent!", ephemeral=True)
 # -------------------------
 # Helper: check blocked game names
 # -------------------------
