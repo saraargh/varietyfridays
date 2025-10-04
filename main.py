@@ -342,6 +342,7 @@ async def startvote(interaction: discord.Interaction):
 
     # Save vote message ID
     data.vote_message_id = vote_msg.id
+
 # -------------------------
 # Participants tracking
 # -------------------------
@@ -353,6 +354,11 @@ async def on_reaction_add(reaction, user):
     if reaction.message.id == data.reminder_message_id:
         if str(reaction.emoji) == "✅":
             data.add_yes_participant(user.id)
+            # DM the user for registering yes
+            try:
+                await user.send(f"Thanks for registering for {config.EVENT_NAME}! 🎉")
+            except:
+                pass
         elif str(reaction.emoji) == "❌":
             data.add_no_participant(user.id)
         elif str(reaction.emoji) == "❔":
@@ -370,6 +376,7 @@ async def on_reaction_remove(reaction, user):
             data.remove_no_participant(user.id)
         elif str(reaction.emoji) == "❔":
             data.remove_maybe_participant(user.id)
+
 
 # -------------------------
 # /participants command
