@@ -187,20 +187,13 @@ async def addgame(interaction: discord.Interaction, name: str):
         embed.set_image(url="https://media3.giphy.com/media/v1.Y2lkPTZjMDliOTUyeHZhc251N2RmYXh2eGs3ajZ1dXh3cHNkcTQ1c2ZwN3Fxd2pvMjV2OSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/cqdBfG6mFamru/giphy.gif")
 
         msg = await interaction.channel.send(embed=embed)
-
-        # Add some extra mocking reactions
         for emoji in ["⏰", "❌", "😂"]:
             await msg.add_reaction(emoji)
-
         return
 
     # List of blocked keywords
     blocked_keywords = ["death note", "dn", "dnkw", "death note killer within"]
-
-    # Clean the game name: lowercase + remove spaces
     name_clean = name.lower().replace(" ", "")
-
-    # Check if the game matches any blocked keyword
     if any(keyword.replace(" ", "") in name_clean for keyword in blocked_keywords):
         embed = discord.Embed(
             title="🚨🚨 **BLOCKED GAME ATTEMPT!** 🚨🚨",
@@ -211,13 +204,11 @@ async def addgame(interaction: discord.Interaction, name: str):
         embed.set_image(url="https://media4.giphy.com/media/v1.Y2lkPTZjMDliOTUycmdtenhjMXJkaXY4c2JqMnpwcnYwZHFvcW9jMzlqMzh3ejNwY3dwdyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L9xNendArFokw/giphy.gif")  
 
         msg = await interaction.channel.send(embed=embed)
-
         for emoji in ["🚨", "❌", "😱"]:
             await msg.add_reaction(emoji)
-
         return
 
-    # Add game normally if not blocked
+    # Add game normally
     if data.addgame(name):
         games_list = ", ".join(data.games)
         await interaction.response.send_message(f"Game added: {name}\nCurrent games: {games_list}", ephemeral=False)
@@ -298,28 +289,8 @@ async def participants(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, ephemeral=False)
 
 # -------------------------
-# Voting commands (roles only)
+# End vote with tie logic
 # -------------------------
-@bot.tree.command(name="startvote", description="Start voting on games (roles only)")
-async def startvote(interaction: discord.Interaction):
-    if not allowed(interaction):
-        await interaction.response.send_message("You don't have permission to start voting.", ephemeral=True)
-        return
-    if not data.games:
-        await interaction.response.send_message("No games to vote on.", ephemeral=True)
-        return
-
-    description = "\n".join(f"{i+1}\u20E3 {g}" for i, g in enumerate(data.games))
-    embed = discord.Embed(title="Game Voting!", description=description, color=discord.Color.purple())
-
-    msg = await interaction.channel.send(embed=embed)
-
-    for i in range(len(data.games)):
-        await msg.add_reaction(f"{i+1}\u20E3")  # 1️⃣ 2️⃣ 3️⃣ etc
-
-    data.vote_message_id = msg.id
-    await interaction.response.send_message("Voting started!", ephemeral=True)
-
 @bot.tree.command(name="endvote", description="End voting and announce winner (roles only)")
 async def endvote(interaction: discord.Interaction):
     if not allowed(interaction):
@@ -340,20 +311,93 @@ async def endvote(interaction: discord.Interaction):
     for i, game in enumerate(data.games):
         emoji = f"{i+1}\u20E3"
         reaction = discord.utils.get(msg.reactions, emoji=emoji)
-        if reaction:
-            vote_counts[game] = reaction.count - 1  # subtract bot's own reaction
-        else:
-            vote_counts[game] = 0
+        vote_counts[game] = reaction.count - 1 if reaction else 0
 
-    if vote_counts:
-        max_votes = max(vote_counts.values())
-        winners = [g for g, v in vote_counts.items() if v == max_votes]
-        winner_text = winners[0]  # take first if tie
+    max_votes = max(vote_counts.values(), default=0)
+    winners = [g for g, v in vote_counts.items() if v == max_votes]
+
+    if len(winners) == 0:
+        embed = discord.Embed(
+            title="No votes were cast 😢",
+            description="Nobody voted, so no game was chosen.",
+            color=discord.Color.dark_gray()
+        )
+        await channel.send(embed=embed)
+
+    elif len(winners) == 1:
+        winner_text = winners[0]
+        embed = discord.Embed(
+            title=f"🏆 {winner_text} WINS! 🏆",
+            description=f"Variety Friday will be playing **{winner_text}**! 🎉",
+            color=discord.Color.green()
+        )
+        embed.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUyM2g0dWVqcnBpcTN1NGJzMDYyMnY4OHFwMXZiOHlyOXJ1MGQ2aTdwMCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/blSTtZehjAZ8I/giphy.gif")
+        await channel.send(embed=embed)
+
     else:
-        winner_text = "No votes cast."
+        # Tie detected
+        tied_games_text = "\n".join(f"{i+1}. {g}" for i, g in enumerate(winners))
+        embed = discord.Embed(
+            title="⚠️ IT'S A TIE! ⚠️",
+            description=f"The following games have tied:\n{tied_games_text}\n\nReact to vote again to break the tie!",
+            color=discord.Color.red()
+        )
+        embed.set_image(url="https://media0.giphy.com/media/v1.Y2lkPTZjMDliOTUya2pmcnM5Y25kcGprZmlhbnVycDlmNjIxa2FhYWFkYWI2czBzenRmcyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT3i0VNrc6Ny7bxfJm/giphy.gif")
+        tie_msg = await channel.send(embed=embed)
 
-    await interaction.channel.send(f"Voting has ended, {winner_text} is the winner! 🏆")
-    data.vote_message_id = None
+        # Add numeric reactions for tiebreak
+        for i in range(len(winners)):
+            await tie_msg.add_reaction(f"{i+1}\u20E3")
+        await tie_msg.add_reaction("🅰️")  # "All of them" option
+
+        data.tie_message_id = tie_msg.id
+        data.tie_options = winners
+        data.vote_message_id = None  # Reset main vote
+
+# -------------------------
+# End tiebreak command
+# -------------------------
+@bot.tree.command(name="endtiebreak", description="End the tiebreak voting and announce winner")
+async def endtiebreak(interaction: discord.Interaction):
+    if not allowed(interaction):
+        await interaction.response.send_message("You don't have permission.", ephemeral=True)
+        return
+    if not getattr(data, 'tie_message_id', None):
+        await interaction.response.send_message("No active tiebreak voting.", ephemeral=True)
+        return
+
+    channel = interaction.channel
+    try:
+        msg = await channel.fetch_message(data.tie_message_id)
+    except:
+        await interaction.response.send_message("Tiebreak vote message not found.", ephemeral=True)
+        return
+
+    tie_counts = {}
+    for i, game in enumerate(data.tie_options):
+        emoji = f"{i+1}\u20E3"
+        reaction = discord.utils.get(msg.reactions, emoji=emoji)
+        tie_counts[game] = reaction.count - 1 if reaction else 0
+
+    # Check "All of them" option
+    all_reaction = discord.utils.get(msg.reactions, emoji="🅰️")
+    if all_reaction and all_reaction.count > 1:
+        winner_text = "All of them"
+    else:
+        max_votes = max(tie_counts.values(), default=0)
+        winners = [g for g, v in tie_counts.items() if v == max_votes]
+        winner_text = winners[0] if winners else "No votes cast"
+
+    embed = discord.Embed(
+        title=f"🎉 Tie Broken! 🎉",
+        description=f"Variety Friday will be playing **{winner_text}**! 🏆",
+        color=discord.Color.green()
+    )
+    embed.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUyM2g0dWVqcnBpcTN1NGJzMDYyMnY4OHFwMXZiOHlyOXJ1MGQ2aTdwMCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/blSTtZehjAZ8I/giphy.gif")
+    await channel.send(embed=embed)
+
+    data.tie_message_id = None
+    data.tie_options = None
 
 # -------------------------
 # Start event command
@@ -381,4 +425,3 @@ async def startevent(interaction: discord.Interaction):
 # -------------------------
 bot.run(config.TOKEN)
 
-            
