@@ -389,7 +389,7 @@ async def endvote(interaction: discord.Interaction):
         tied_text = "\n".join(f"{i+1}. {g}" for i, g in enumerate(tied_games))
         embed = discord.Embed(
             title="⚠️ IT'S A TIE! ⚠️",
-            description=f"The following games tied:\n{tied_text}\nReact to vote again to break the tie!",
+            description=f"The following games tied, vote again to break the tie!\n{tied_text}
             color=discord.Color.red()
         )
         embed.set_image(url="https://media0.giphy.com/media/v1.Y2lkPTZjMDliOTUya2pmcnM5Y25kcGprZmlhbnVycDlmNjIxa2FhYWFkYWI2czBzenRmcyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT3i0VNrc6Ny7bxfJm/giphy.gif")
@@ -405,7 +405,9 @@ async def endvote(interaction: discord.Interaction):
 # -------------------------
 # /endtiebreak command
 # -------------------------
-@bot.tree.command(name="endtiebreak", description="End the tiebreak voting and announce winner")
+
+
+@bot.tree.command(name="endtiebreak", description="End the tiebreak voting and announce winner(s)")
 async def endtiebreak(interaction: discord.Interaction):
     if not allowed(interaction):
         await interaction.response.send_message("You don't have permission.", ephemeral=True)
@@ -430,19 +432,21 @@ async def endtiebreak(interaction: discord.Interaction):
     max_votes = max(tie_counts.values(), default=0)
     winners = [g for g, v in tie_counts.items() if v == max_votes]
 
+    # Handle "All of them" case and multiple winners
     if "All of them" in winners:
         winner_text = ", ".join([g for g in data.tie_options if g != "All of them"])
     else:
-        winner_text = winners[0]
+        winner_text = ", ".join(winners)
 
     embed = discord.Embed(
-        title=f"🏆 WE'VE GOT A TIE BREAKER! 🏆",
-        description=f"Looks like we're rolling with **{winner_text}** - See you at Variety Friday! 🎮",
+        title=f"🏆 TIE BREAKER RESULT! 🏆",
+        description=f"The winner(s): **{winner_text}** - See you at Variety Friday! 🎮",
         color=discord.Color.green()
     )
     embed.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUyM2g0dWVqcnBpcTN1NGJzMDYyMnY4OHFwMXZiOHlyOXJ1MGQ2aTdwMCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/blSTtZehjAZ8I/giphy.gif")
     await channel.send(embed=embed)
 
+    # Reset tiebreak state
     data.tie_message_id = None
     data.tie_options = None
 
