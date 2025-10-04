@@ -87,12 +87,16 @@ async def createevent(interaction: discord.Interaction):
         await interaction.response.send_message("Voice channel not found.", ephemeral=True)
         return
 
-    # Calculate start and end times
+    # Calculate start time for the next Friday
     tz = pytz.timezone(config.TIMEZONE)
     now = datetime.datetime.now(tz)
-    start_time = now.replace(hour=config.EVENT_START_HOUR, minute=0, second=0, microsecond=0)
-    if start_time < now:
-        start_time += datetime.timedelta(days=1)
+
+    # Weekday: Monday=0, ..., Friday=4, Sunday=6
+    days_until_friday = (4 - now.weekday() + 7) % 7
+    if days_until_friday == 0 and now.hour >= config.EVENT_START_HOUR:
+        days_until_friday = 7  # If today is Friday but the time has passed, pick next Friday
+
+    start_time = now.replace(hour=config.EVENT_START_HOUR, minute=0, second=0, microsecond=0) + datetime.timedelta(days=days_until_friday)
     end_time = start_time + datetime.timedelta(hours=config.EVENT_DURATION_HOURS)
 
     # Create Discord event
@@ -107,7 +111,7 @@ async def createevent(interaction: discord.Interaction):
     )
 
     data.last_event_id = event.id
-    await interaction.response.send_message(f"Event created: {event.name}", ephemeral=True)
+    await interaction.response.send_message(f"Event created: {event.name} for {start_time.strftime('%A, %d %B %Y %H:%M %Z')}", ephemeral=True)
 
 # -------------------------
 # /register
