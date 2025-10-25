@@ -31,7 +31,7 @@ intents.members = True
 intents.reactions = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
-data = DataManager()
+data = DataManager()  # Data persists via JSON
 
 # -------------------------
 # Helper functions
@@ -59,6 +59,21 @@ async def on_ready():
         logger.info(f"Synced {len(synced)} commands")
     except Exception as e:
         logger.error(f"Error syncing commands: {e}")
+
+    # Restore vote/tiebreak messages if bot restarted mid-vote
+    guild = get_guild(bot)
+    if guild and data.vote_message_id:
+        try:
+            channel = guild.get_channel(config.TEXT_CHANNEL_ID)
+            data._vote_message = await channel.fetch_message(data.vote_message_id)
+        except:
+            data.vote_message_id = None
+    if guild and getattr(data, 'tie_message_id', None):
+        try:
+            channel = guild.get_channel(config.TEXT_CHANNEL_ID)
+            data._tie_message = await channel.fetch_message(data.tie_message_id)
+        except:
+            data.tie_message_id = None
 
 # -------------------------
 # /help command
@@ -88,7 +103,6 @@ async def createevent(interaction: discord.Interaction):
         await interaction.response.send_message("Voice channel not found.", ephemeral=True)
         return
 
-    # Calculate start time for the next Friday
     tz = pytz.timezone(config.TIMEZONE)
     now = datetime.datetime.now(tz)
 
@@ -99,7 +113,6 @@ async def createevent(interaction: discord.Interaction):
     start_time = now.replace(hour=config.EVENT_START_HOUR, minute=0, second=0, microsecond=0) + datetime.timedelta(days=days_until_friday)
     end_time = start_time + datetime.timedelta(hours=config.EVENT_DURATION_HOURS)
 
-    # Create Discord event
     event = await guild.create_scheduled_event(
         name=config.EVENT_NAME,
         start_time=start_time.astimezone(pytz.UTC),
@@ -111,7 +124,6 @@ async def createevent(interaction: discord.Interaction):
     )
 
     data.last_event_id = event.id
-    data.save_data()
     await interaction.response.send_message(f"Event created: {event.name} for {start_time.strftime('%A, %d %B %Y %H:%M %Z')}", ephemeral=True)
 
 # -------------------------
@@ -119,13 +131,14 @@ async def createevent(interaction: discord.Interaction):
 # -------------------------
 @bot.tree.command(name="register", description="Announce the event and allow people to register")
 async def register(interaction: discord.Interaction):
-    global data
     guild = get_guild(bot)
     if not guild or not data.last_event_id:
+        await interaction.response.send_message("No upcoming event found.", ephemeral=True)
         return
 
     event = await guild.fetch_scheduled_event(data.last_event_id)
     if not event:
+        await interaction.response.send_message("Event not found.", ephemeral=True)
         return
 
     # Ping @everyone
@@ -134,32 +147,31 @@ async def register(interaction: discord.Interaction):
         allowed_mentions=discord.AllowedMentions(everyone=True)
     )
 
-    # Embed with reactions
     embed = discord.Embed(
         title=f"{config.EVENT_NAME} is coming!",
-        description=f"React below if you're attending!\n[event link 🗓️]({event.url})\nDon't forget to add your game suggestions using /addgame so we can vote later!",
+        description=f"React below if you're attending!\n[event link 🗓️]({event.url})\nDon't forget to add your game suggestions using /addgame!",
         color=discord.Color.green()
     )
     msg = await interaction.channel.send(embed=embed)
-    await msg.add_reaction("✅")  # Yes
-    await msg.add_reaction("❌")  # No
-    await msg.add_reaction("❔")  # Maybe
+    for emoji in ["✅", "❌", "❔"]:
+        await msg.add_reaction(emoji)
 
     data.reminder_message_id = msg.id
-    data.save_data()
+    await interaction.response.send_message("Event announcement sent!", ephemeral=True)
 
 # -------------------------
 # /reminder command
 # -------------------------
 @bot.tree.command(name="reminder", description="Send a reminder about the event")
 async def reminder(interaction: discord.Interaction):
-    global data
     guild = get_guild(bot)
     if not guild or not data.last_event_id:
+        await interaction.response.send_message("No upcoming event found.", ephemeral=True)
         return
 
     event = await guild.fetch_scheduled_event(data.last_event_id)
     if not event:
+        await interaction.response.send_message("Event not found.", ephemeral=True)
         return
 
     # Ping @everyone
@@ -168,35 +180,30 @@ async def reminder(interaction: discord.Interaction):
         allowed_mentions=discord.AllowedMentions(everyone=True)
     )
 
-    # Embed with reactions
     embed = discord.Embed(
         title=f"{config.EVENT_NAME} is coming!",
         description=f"React below if you're attending!\n[event link 🗓️]({event.url})",
         color=discord.Color.gold()
     )
     msg = await interaction.channel.send(embed=embed)
-    await msg.add_reaction("✅")  # Yes
-    await msg.add_reaction("❌")  # No
-    await msg.add_reaction("❔")  # Maybe
+    for emoji in ["✅", "❌", "❔"]:
+        await msg.add_reaction(emoji)
 
     data.reminder_message_id = msg.id
-    data.save_data()
-
-# -------------------------
-# Helper: check blocked game names
+    await interaction.response.send_message("Reminder sent!", ephemeral=True)
+    # -------------------------
+# Blocked games helper
 # -------------------------
 def is_blocked_game(name: str) -> bool:
     blocked_keywords = [
         "death note", "dn", "dnkw", "death note killer within",
         "cooked", "washed", "kira", "downtown", "toy town", "toytown", "note"
     ]
-    leet_map = str.maketrans({'4':'a','@':'a','3':'e','1':'i','!':'i','0':'o','5':'s','$':'s','7':'t'})
+    leet_map = str.maketrans({'4': 'a','@': 'a','3': 'e','1': 'i','!': 'i','0': 'o','5': 's','$': 's','7': 't'})
     name_normalized = name.lower().translate(leet_map)
     name_clean = re.sub(r'[^a-z0-9]', '', name_normalized)
-
     if re.fullmatch(r'\s*L\s*', name, re.IGNORECASE):
         return True
-
     for word in blocked_keywords:
         word_clean = re.sub(r'[^a-z0-9]', '', word.lower())
         if word_clean in name_clean:
@@ -208,59 +215,52 @@ def is_blocked_game(name: str) -> bool:
 # -------------------------
 @bot.tree.command(name="addgame", description="Add a game to vote on")
 async def addgame(interaction: discord.Interaction, name: str):
-    global data
     if data.vote_message_id is not None and getattr(data, 'tie_message_id', None) is None:
         embed = discord.Embed(
             title="🚨 TOO LATE! 🚨",
-            description=f"**{interaction.user.mention} tried to add a game while voting is open!**",
+            description=f"{interaction.user.mention} tried to add a game while voting is open!",
             color=discord.Color.red()
         )
         msg = await interaction.channel.send(embed=embed)
-        for emoji in ["⏰","❌","😂"]:
+        for emoji in ["⏰", "❌", "😂"]:
             await msg.add_reaction(emoji)
         return
 
     if is_blocked_game(name):
         embed = discord.Embed(
-            title="🚨 BLOCKED GAME ATTEMPT! 🚨",
-            description=f"**{interaction.user.mention} tried to add Death Note!**",
+            title="🚨 BLOCKED GAME! 🚨",
+            description=f"{interaction.user.mention} tried to add Death Note - Please add another game!",
             color=discord.Color.red()
         )
         msg = await interaction.channel.send(embed=embed)
-        for emoji in ["🚨","❌","😱"]:
+        for emoji in ["🚨", "❌", "😱"]:
             await msg.add_reaction(emoji)
         return
 
     if data.addgame(name):
-        data.save_data()
         games_list = ", ".join(data.games)
         await interaction.response.send_message(f"Game added: {name}\nCurrent games: {games_list}", ephemeral=False)
     else:
-        await interaction.response.send_message(
-            "Cannot add more than 10 games or game already exists.",
-            ephemeral=False
-        )
+        await interaction.response.send_message("Cannot add more than 10 games or game already exists.", ephemeral=False)
 
 # -------------------------
 # /removegame command
 # -------------------------
 @bot.tree.command(name="removegame", description="Remove a game (roles only)")
 async def removegame(interaction: discord.Interaction, name: str):
-    global data
     if not allowed(interaction):
         await interaction.response.send_message("You don't have permission.", ephemeral=True)
         return
     if data.removegame(name):
-        data.save_data()
         await interaction.response.send_message(f"Removed game: {name}", ephemeral=False)
     else:
         await interaction.response.send_message("Game not found.", ephemeral=True)
+
 # -------------------------
 # /listgames command
 # -------------------------
 @bot.tree.command(name="listgames", description="List all current games")
 async def listgames(interaction: discord.Interaction):
-    global data
     if not data.games:
         await interaction.response.send_message("No games added yet.", ephemeral=False)
         return
@@ -274,21 +274,17 @@ async def listgames(interaction: discord.Interaction):
 # -------------------------
 @bot.tree.command(name="resetgames", description="Reset all games (roles only)")
 async def resetgames(interaction: discord.Interaction):
-    global data
     if not allowed(interaction):
         await interaction.response.send_message("You don't have permission to reset games.", ephemeral=True)
         return
     data.resetgames()
-    data.save_data()
     await interaction.response.send_message("All games have been reset.", ephemeral=False)
 
 # -------------------------
 # /startvote command
 # -------------------------
 @bot.tree.command(name="startvote", description="Start the game vote")
-@app_commands.checks.has_permissions(manage_messages=True)
 async def startvote(interaction: discord.Interaction):
-    global data
     if data.vote_message_id is not None:
         await interaction.response.send_message("A vote is already in progress!", ephemeral=True)
         return
@@ -297,16 +293,12 @@ async def startvote(interaction: discord.Interaction):
         await interaction.response.send_message("No games available to vote for.", ephemeral=True)
         return
 
-    # Ping @everyone first
     await interaction.channel.send(
         "@everyone It's time to vote! 🎉",
         allowed_mentions=discord.AllowedMentions(everyone=True)
     )
 
-    # Build the list of games with emojis
-    options = [f"{i+1}\u20e3 {game}" for i, game in enumerate(data.games)]
-    options_text = "\n".join(options)
-
+    options_text = "\n".join(f"{i+1}. {game}" for i, game in enumerate(data.games))
     embed = discord.Embed(
         title="👾 TIME TO VOTE! 👾",
         description=f"Vote for what we’ll play this Variety Friday!🎮\n\n{options_text}",
@@ -315,65 +307,51 @@ async def startvote(interaction: discord.Interaction):
     embed.set_footer(text="React below to cast your vote!")
 
     vote_msg = await interaction.channel.send(embed=embed)
-
-    # Add reactions for each option (max 10)
+    number_emojis = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"]
     for i in range(len(data.games)):
-        if i < 10:  # Ensure no extra reactions beyond 10
-            await vote_msg.add_reaction(f"{i+1}\u20e3")
+        await vote_msg.add_reaction(number_emojis[i])
 
-    # Save vote message ID
     data.vote_message_id = vote_msg.id
-    data.save_data()
 
 # -------------------------
 # Participants tracking
 # -------------------------
 @bot.event
 async def on_reaction_add(reaction, user):
-    global data
     if user.bot:
         return
     if reaction.message.id == data.reminder_message_id:
         if str(reaction.emoji) == "✅":
             data.add_yes_participant(user.id)
-            data.save_data()
-            # DM the user for registering yes
             try:
                 await user.send(f"Thanks for registering for {config.EVENT_NAME} - See you there! 🎉")
             except:
                 pass
         elif str(reaction.emoji) == "❌":
             data.add_no_participant(user.id)
-            data.save_data()
         elif str(reaction.emoji) == "❔":
             data.add_maybe_participant(user.id)
-            data.save_data()
 
 @bot.event
 async def on_reaction_remove(reaction, user):
-    global data
     if user.bot:
         return
     if reaction.message.id == data.reminder_message_id:
         if str(reaction.emoji) == "✅":
             data.remove_yes_participant(user.id)
-            data.save_data()
         elif str(reaction.emoji) == "❌":
             data.remove_no_participant(user.id)
-            data.save_data()
         elif str(reaction.emoji) == "❔":
             data.remove_maybe_participant(user.id)
-            data.save_data()
-
-# -------------------------
+            # -------------------------
 # /participants command
 # -------------------------
 @bot.tree.command(name="participants", description="Show who is attending")
 async def participants(interaction: discord.Interaction):
-    global data
     yes_users = [f"<@{uid}>" for uid in data.yes_participants]
     no_users = [f"<@{uid}>" for uid in data.no_participants]
     maybe_users = [f"<@{uid}>" for uid in data.maybe_participants]
+
     embed = discord.Embed(title="Event Participants", color=discord.Color.blue())
     embed.add_field(name="✅ Yes", value="\n".join(yes_users) or "None", inline=False)
     embed.add_field(name="❌ No", value="\n".join(no_users) or "None", inline=False)
@@ -385,7 +363,6 @@ async def participants(interaction: discord.Interaction):
 # -------------------------
 @bot.tree.command(name="endvote", description="End voting and announce winner (roles only)")
 async def endvote(interaction: discord.Interaction):
-    global data
     if not allowed(interaction):
         await interaction.response.send_message("You don't have permission.", ephemeral=True)
         return
@@ -393,26 +370,22 @@ async def endvote(interaction: discord.Interaction):
         await interaction.response.send_message("No active voting message.", ephemeral=True)
         return
 
-    channel = interaction.channel
     try:
-        msg = await channel.fetch_message(data.vote_message_id)
+        msg = await interaction.channel.fetch_message(data.vote_message_id)
     except:
         await interaction.response.send_message("Vote message not found.", ephemeral=True)
         data.vote_message_id = None
-        data.save_data()
         return
 
     vote_counts = {}
+    number_emojis = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"]
     for i, game in enumerate(data.games):
-        emoji = f"{i+1}\u20E3"
-        reaction = discord.utils.get(msg.reactions, emoji=emoji)
+        reaction = discord.utils.get(msg.reactions, emoji=number_emojis[i])
         vote_counts[game] = reaction.count - 1 if reaction else 0
 
     max_votes = max(vote_counts.values(), default=0)
     winners = [g for g, v in vote_counts.items() if v == max_votes]
-
     data.vote_message_id = None
-    data.save_data()
 
     if len(winners) == 0:
         embed = discord.Embed(
@@ -420,16 +393,15 @@ async def endvote(interaction: discord.Interaction):
             description="Nobody voted, so no game was chosen.",
             color=discord.Color.dark_gray()
         )
-        await channel.send(embed=embed)
+        await interaction.channel.send(embed=embed)
     elif len(winners) == 1:
-        winner_text = winners[0]
         embed = discord.Embed(
-            title=f"🏆 WE HAVE A WINNER! 🏆",
-            description=f"**{winner_text}** won the vote - See you at Variety Friday! 🎮",
+            title="🏆 WE HAVE A WINNER! 🏆",
+            description=f"**{winners[0]}** won the vote - See you at Variety Friday! 🎮",
             color=discord.Color.green()
         )
         embed.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUyM2g0dWVqcnBpcTN1NGJzMDYyMnY4OHFwMXZiOHlyOXJ1MGQ2aTdwMCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/blSTtZehjAZ8I/giphy.gif")
-        await channel.send(embed=embed)
+        await interaction.channel.send(embed=embed)
     else:
         tied_games = winners.copy()
         tied_games.append("All of them")
@@ -440,22 +412,17 @@ async def endvote(interaction: discord.Interaction):
             color=discord.Color.red()
         )
         embed.set_image(url="https://media0.giphy.com/media/v1.Y2lkPTZjMDliOTUya2pmcnM5Y25kcGprZmlhbnVycDlmNjIxa2FhYWFkYWI2czBzenRmcyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xT3i0VNrc6Ny7bxfJm/giphy.gif")
-        tie_msg = await channel.send(embed=embed)
-
+        tie_msg = await interaction.channel.send(embed=embed)
         for i in range(len(tied_games)):
-            if i < 10:
-                await tie_msg.add_reaction(f"{i+1}\u20E3")
-
+            await tie_msg.add_reaction(number_emojis[i])
         data.tie_message_id = tie_msg.id
         data.tie_options = tied_games
-        data.save_data()
 
 # -------------------------
 # /endtiebreak command
 # -------------------------
 @bot.tree.command(name="endtiebreak", description="End the tiebreak voting and announce winner(s)")
 async def endtiebreak(interaction: discord.Interaction):
-    global data
     if not allowed(interaction):
         await interaction.response.send_message("You don't have permission.", ephemeral=True)
         return
@@ -463,17 +430,16 @@ async def endtiebreak(interaction: discord.Interaction):
         await interaction.response.send_message("No active tiebreak voting.", ephemeral=True)
         return
 
-    channel = interaction.channel
     try:
-        msg = await channel.fetch_message(data.tie_message_id)
+        msg = await interaction.channel.fetch_message(data.tie_message_id)
     except:
         await interaction.response.send_message("Tiebreak vote message not found.", ephemeral=True)
         return
 
     tie_counts = {}
+    number_emojis = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"]
     for i, game in enumerate(data.tie_options):
-        emoji = f"{i+1}\u20E3"
-        reaction = discord.utils.get(msg.reactions, emoji=emoji)
+        reaction = discord.utils.get(msg.reactions, emoji=number_emojis[i])
         tie_counts[game] = reaction.count - 1 if reaction else 0
 
     max_votes = max(tie_counts.values(), default=0)
@@ -485,23 +451,21 @@ async def endtiebreak(interaction: discord.Interaction):
         winner_text = ", ".join(winners)
 
     embed = discord.Embed(
-        title=f"🏆 TIE BREAKER RESULT! 🏆",
+        title="🏆 TIE BREAKER RESULT! 🏆",
         description=f"**{winner_text}** won the tie breaker - See you at Variety Friday! 🎮",
         color=discord.Color.green()
     )
     embed.set_image(url="https://media1.giphy.com/media/v1.Y2lkPTZjMDliOTUyM2g0dWVqcnBpcTN1NGJzMDYyMnY4OHFwMXZiOHlyOXJ1MGQ2aTdwMCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/blSTtZehjAZ8I/giphy.gif")
-    await channel.send(embed=embed)
+    await interaction.channel.send(embed=embed)
 
     data.tie_message_id = None
     data.tie_options = None
-    data.save_data()
 
 # -------------------------
 # /startevent command
 # -------------------------
 @bot.tree.command(name="startevent", description="Announce the start of the event")
 async def startevent(interaction: discord.Interaction):
-    global data
     if not allowed(interaction):
         await interaction.response.send_message("You don't have permission to start the event.", ephemeral=True)
         return
